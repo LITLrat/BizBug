@@ -161,3 +161,7 @@ Neither sample branding nor the demo contains a real connected service. Do not i
 - `tests/test_app.py` / `tests/test_integrations.py`: baseline and provider-mocked automated tests.
 
 **Next recommended milestone:** Real provider smoke tests under your own domain, followed by a secure tenant onboarding architecture and a queued SMS notification/booking-confirmation service.
+
+
+## Opening the demo on iPhone
+Downloaded standalone HTML may not run inside iOS Files, Quick Look, or ChatGPT's document preview: those environments can block JavaScript or localStorage. BizBug v0.7 catches denied storage and displays a clear fallback message instead of an unexplained loading screen. The recommended interactive iPhone experience is an HTTPS-hosted BizBug demo opened directly in Safari. Do not expect HTML attachment preview to behave as a normal Safari tab.
