@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#12352b"><title>BizBug Admin | Agency Workspace</title><link rel="stylesheet" href="/assets/style.css"></head>
+<body>
+<div id="login" class="login-screen hidden">
+ <div class="login-card"><div class="brand brand-login"><span class="mark">✦</span><div><strong>bizbug</strong><small>AGENCY CONTROL CENTER</small></div></div>
+ <div class="eyebrow">PRIVATE WORKSPACE</div><h1>Welcome back.</h1><p>Sign in to manage your client businesses and AI assistants.</p>
+ <form id="login-form"><label for="email">Email address</label><input id="email" type="email" autocomplete="username" required placeholder="you@yourbusiness.com"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required placeholder="Your password"><button class="primary wide" type="submit">Sign In <span>→</span></button></form><p class="notice">The public customer demo is a separate application.</p>
+ </div>
+</div>
+<div id="shell" class="shell hidden">
+ <aside class="sidebar"><div class="brand"><span class="mark">✦</span><div><strong>bizbug</strong><small>ADMIN CONSOLE</small></div></div><div class="side-caption">WORKSPACE</div>
+  <nav id="sidebar-nav"><button class="nav active" data-view="overview"><span class="nav-icon">◈</span><span>Overview</span></button><button class="nav" data-view="businesses"><span class="nav-icon">▦</span><span>Businesses</span></button><button class="nav" data-view="activity"><span class="nav-icon">◷</span><span>Audit Log</span></button></nav>
+  <div class="sidebar-bottom"><div class="profile-mark">BB</div><div id="sidebar-user"><b>Agency Admin</b><span>Secure Workspace</span></div></div>
+ </aside>
+ <main class="main"><header class="topbar"><div class="breadcrumb"><span>BizBug</span><span>/</span><b id="crumb">Overview</b></div><div class="top-actions"><span class="private-pill"><span class="status-dot"></span>Private Workspace</span><button id="password-btn" class="text-button" type="button">Change Password</button><button id="logout" class="outline" type="button">Sign Out</button></div></header>
+ <div class="body-content" id="content"><div class="loading">Loading Your Businesses…</div></div></main>
+</div>
+<div id="modal-backdrop" class="modal-backdrop hidden" role="presentation"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><header><h2 id="modal-title">Edit</h2><button id="close-modal" class="close" type="button" aria-label="Close">×</button></header><div id="modal-content"></div></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/assets/app.js" defer></script>
+</body></html>
