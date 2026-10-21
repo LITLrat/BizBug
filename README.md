@@ -1,8 +1,17 @@
 # BizBug | Calendar and Two-Way SMS Edition
 
-**BizBug v0.2 | Updated October 21, 2026.** Multi-business assistant studio with website chat, leads, FAQ answers, and new **Google Calendar / Microsoft Outlook booking** and **Twilio inbound SMS** integration code. The integrations screen is available from **Calendar & SMS** in the left navigation.
+**BizBug v0.6 | Updated October 21, 2026.** Multi-business assistant studio with website chat, leads, FAQ answers, and new **Google Calendar / Microsoft Outlook booking** and **Twilio inbound SMS** integration code. The integrations screen is available from **Calendar & SMS** in the left navigation.
 
 **This package is a runnable application with locally mocked integration tests. It is NOT connected to real Google, Microsoft, or Twilio accounts and has NOT been publicly deployed.** The accounts, OAuth registrations, secrets, sending-number approval, hosting, and security work described below must be completed before a real customer can book or text.
+
+## v0.6 interface updates
+
+- **Business Information Settings** now appears first under Business Setup, with **Demo Color Scheme** at the bottom.
+- The assistant chat uses a persistent form handler for click-to-send and Enter-to-send. Errors display directly in the conversation.
+- All four demo color themes now actually update the main interface and sidebar.
+- English/Español switch in the top bar translates the dashboard, menus, headings and built-in instructions, and selects the appropriate assistant language. Business-specific names and user-authored source materials remain as entered; the UI is not an automatic document translator.
+- Knowledge Base no longer shows duplicate `ES:` answer snippets in English view; Spanish answers display when Español is selected and available.
+- Top-right administrative access icon now uses a lock; hero and overview copy have been updated.
 
 ## Two ways to demonstrate
 
@@ -48,7 +57,7 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-**Latest test result: 14 passed.** Includes actual HTTP requests into the app and mocked Google/Microsoft provider API responses; does **not** establish that a production Google/Microsoft/Twilio account is already functional.
+**Latest test result: 17 passed.** Includes actual HTTP requests into the app and mocked Google/Microsoft provider API responses; does **not** establish that a production Google/Microsoft/Twilio account is already functional.
 
 ## Required server setup
 
