@@ -207,6 +207,7 @@ def public_business(p):
 class ChatInput(BaseModel):
     message: str = Field(min_length=1, max_length=1400)
     session_id: Optional[str] = Field(default=None, max_length=64)
+    language: Optional[str] = Field(default=None, pattern=r'^(en|es)$')
 
 class BusinessInput(BaseModel):
     name: str = Field(min_length=2, max_length=90)
@@ -453,7 +454,7 @@ def process_chat(bid: str, body: ChatInput, source='assistant', sender_phone=Non
             stage, state, previous_lang = '', {}, 'en'
         else:
             stage, state, previous_lang = session['stage'], json.loads(session['state'] or '{}'), session['language']
-        lang = lang_detect(message, previous_lang)
+        lang = body.language if body.language in ('en', 'es') else lang_detect(message, previous_lang)
         low = normalize(message)
         options = []
         def respond(text, new_stage=None):
