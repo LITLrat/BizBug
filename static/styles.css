@@ -109,7 +109,7 @@ body[data-theme] .live-label{background:var(--mint);color:var(--theme-ink)}
 
 /* In a restricted iPhone document viewer, never leave an unexplained loading state. */
 .startup-loading{margin:0 0 12px}
-.startup-fallback{margin:20px auto;max-width:490px;padding:16px;border:1px solid #dbe9e2;border-radius:12px;background:#fff;color:#4d625a;font-size:13px;line-height:1.6;text-align:left;animation:show-iOS-help .2s linear 2.5s both}
+.startup-fallback{margin:20px auto;max-width:490px;padding:16px;border:1px solid #dbe9e2;border-radius:12px;background:#fff;color:#4d625a;font-size:13px;line-height:1.6;text-align:left;opacity:1}
 .startup-fallback strong{font-size:14px;color:#204338}
 .startup-fallback p{margin:8px 0 0}
 .startup-error{margin:32px auto;padding:20px;border:1px solid #e5d6c9;border-radius:12px;background:#fff7ef;color:#694d36;max-width:570px;line-height:1.6}
