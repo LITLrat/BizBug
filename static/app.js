@@ -3,15 +3,18 @@ const $=(sel,base=document)=>base.querySelector(sel);
 const $$=(sel,base=document)=>[...base.querySelectorAll(sel)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const viewText=s=>esc(s).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+// File previews on iPhone may deny storage access, even when JavaScript is enabled.
+function readDemoPreference(key,fallback=''){try{return window.localStorage.getItem(key)??fallback;}catch{return fallback;}}
+function saveDemoPreference(key,value){try{window.localStorage.setItem(key,value);}catch{}}
 let storedAdminToken='';try{storedAdminToken=sessionStorage.getItem('bizbug_admin')||'';}catch{}
-const state={businesses:[],businessId:'bloom',page:'overview',data:null,chatMessages:[],sessionId:null,busy:false,language:'en',chatOptions:[],token:storedAdminToken,integrations:null,smsDemoSession:null,smsDemoMessages:[],smsDemoOptions:[],theme:(localStorage.getItem('bizbug.theme')||'fern'),uiLanguage:(localStorage.getItem('bizbug.uiLanguage')==='es'?'es':'en')};
+const state={businesses:[],businessId:'bloom',page:'overview',data:null,chatMessages:[],sessionId:null,busy:false,language:'en',chatOptions:[],token:storedAdminToken,integrations:null,smsDemoSession:null,smsDemoMessages:[],smsDemoOptions:[],theme:readDemoPreference('bizbug.theme','fern'),uiLanguage:(readDemoPreference('bizbug.uiLanguage')==='es'?'es':'en')};
 const icons={chat:'🗣',lead:'✓',appointment:'🗓',faq:'?',activity:'✦'};
 const dateFmt=s=>{if(!s)return '—';try{return new Date(s).toLocaleDateString(state.uiLanguage==='es'?'es-ES':undefined,{month:'short',day:'numeric',year:'numeric'});}catch{return s;}};
 const timeFmt=s=>{if(!s)return '—';try{return new Date(s).toLocaleString(state.uiLanguage==='es'?'es-ES':undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch{return s;}};
 const short=s=>(s||'').length>74?(s.slice(0,72)+'…'):s;
 const current=()=>state.businesses.find(b=>b.id===state.businessId)||state.businesses[0]||{};
 const themeNames={fern:'Fern',ocean:'Ocean',plum:'Plum',sunset:'Sunset'};
-function applyTheme(theme){state.theme=themeNames[theme]?theme:'fern';document.body.setAttribute('data-theme',state.theme);localStorage.setItem('bizbug.theme',state.theme);const meta=document.querySelector('meta[name="theme-color"]');if(meta){const colors={fern:'#162930',ocean:'#102733',plum:'#24162b',sunset:'#2f1f1a'};meta.setAttribute('content',colors[state.theme]||'#162930');}$$('[data-theme-set]').forEach(btn=>btn.classList.toggle('active',btn.dataset.themeSet===state.theme));}
+function applyTheme(theme){state.theme=themeNames[theme]?theme:'fern';document.body.setAttribute('data-theme',state.theme);saveDemoPreference('bizbug.theme',state.theme);const meta=document.querySelector('meta[name="theme-color"]');if(meta){const colors={fern:'#162930',ocean:'#102733',plum:'#24162b',sunset:'#2f1f1a'};meta.setAttribute('content',colors[state.theme]||'#162930');}$$('[data-theme-set]').forEach(btn=>btn.classList.toggle('active',btn.dataset.themeSet===state.theme));}
 function wireThemeControls(base=document){base.querySelectorAll('[data-theme-set]').forEach(btn=>{btn.onclick=()=>applyTheme(btn.dataset.themeSet);btn.classList.toggle('active',btn.dataset.themeSet===state.theme);});}
 
 const spanishLabels={
@@ -168,7 +171,7 @@ const spanishLabels={
 };
 function setUiLanguage(lang,{reset=true}={}){
  state.uiLanguage=lang==='es'?'es':'en';
- try{localStorage.setItem('bizbug.uiLanguage',state.uiLanguage);}catch{}
+ saveDemoPreference('bizbug.uiLanguage',state.uiLanguage);
  document.documentElement.lang=state.uiLanguage;
  document.querySelectorAll('[data-ui-language]').forEach(btn=>{let active=btn.dataset.uiLanguage===state.uiLanguage;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
  if(reset){state.sessionId=null;state.chatMessages=[];state.chatOptions=[];state.language=state.uiLanguage;}
@@ -323,7 +326,7 @@ function wireIntegrations(){
  });
 }
 
-function render(){if(!state.data)return;sideBar();let html={'overview':mainOverview,'leads':leadsPage,'appointments':appointmentsPage,'knowledge':knowledgePage,'settings':settingsPage,'integrations':integrationsPage}[state.page]();$('#page-content').innerHTML=html;wirePage();wireThemeControls();$$('.theme-pill').forEach(btn=>btn.classList.toggle('active',btn.dataset.themeSet===state.theme));translateUi($('#app'));}
+function render(){if(!state.data)return;sideBar();let html={'overview':mainOverview,'leads':leadsPage,'appointments':appointmentsPage,'knowledge':knowledgePage,'settings':settingsPage,'integrations':integrationsPage}[state.page]();$('#page-content').innerHTML=html;document.body.classList.add('bizbug-ready');wirePage();wireThemeControls();$$('.theme-pill').forEach(btn=>btn.classList.toggle('active',btn.dataset.themeSet===state.theme));translateUi($('#app'));}
 function wirePage(){$$('[data-goto]').forEach(btn=>btn.addEventListener('click',()=>switchPage(btn.dataset.goto)));
  $$('[data-followup]').forEach(btn=>btn.addEventListener('click',()=>openFollowup(btn.dataset.followup)));
  $$('#chat-options [data-send]').forEach(btn=>btn.addEventListener('click',()=>sendChat(btn.dataset.send)));
@@ -359,11 +362,11 @@ async function openFollowup(id){try{const res=await api(`/businesses/${state.bus
  $('#copy-followup',m).addEventListener('click',async()=>{await navigator.clipboard.writeText(text);notify('Draft copied. Paste it in your email app.');});}catch(e){notify(e.message)}}
 function startup(){applyTheme(state.theme);setUiLanguage(state.uiLanguage,{reset:false});
  document.addEventListener('submit',event=>{if(event.target?.id!=='chat-form')return;event.preventDefault();event.stopPropagation();const field=event.target.querySelector('#chat-input');if(!field)return;const value=field.value.trim();if(state.busy)return;if(!value){notify(state.uiLanguage==='es'?'Escribe un mensaje para enviarlo.':'Type a message to send.');field.focus();return;}field.value='';sendChat(value);},true);
- document.addEventListener('keydown',event=>{if(event.target?.id==='chat-input'&&event.key==='Enter'&&!event.shiftKey){event.preventDefault();event.target.form?.requestSubmit();}},true);
+ document.addEventListener('keydown',event=>{if(event.target?.id==='chat-input'&&event.key==='Enter'&&!event.shiftKey){event.preventDefault();if(event.target.form?.requestSubmit){event.target.form.requestSubmit();}else{event.target.form?.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));}}},true);
  document.querySelectorAll('[data-ui-language]').forEach(btn=>btn.addEventListener('click',()=>{setUiLanguage(btn.dataset.uiLanguage);render();}));const dt=new Date();$('#today-date').textContent=dt.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
  wireThemeControls();$('#workspace-picker').addEventListener('click',()=>$('#workspace-menu').classList.toggle('hidden'));
  document.addEventListener('click',e=>{if(!e.target.closest('#workspace-picker')&&!e.target.closest('#workspace-menu'))hideMenu();});
  $$('.nav-link').forEach(n=>n.addEventListener('click',()=>switchPage(n.dataset.page)));
  $('#admin-access').addEventListener('click',showTokenModal);
- loadBusiness().catch(e=>{$('#page-content').textContent='Unable to start: '+e.message;});}
+ loadBusiness().catch(e=>{$('#page-content').innerHTML='<div class="startup-error"><h2>Could Not Start The Demo</h2><p>'+esc(e.message)+'</p><p>Some iPhone file previews block interactive web apps. For full functionality, open BizBug as a hosted HTTPS website in Safari.</p></div>';});}
 startup();
