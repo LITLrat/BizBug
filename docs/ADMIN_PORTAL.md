@@ -46,3 +46,10 @@ An owner can only see a business if their user ID is present in `memberships`. A
 ## Tests
 
 Run `pytest tests_admin -q` from the root after installing dependencies. Tests include login/CSRF checks, owner scope enforcement, password-change requirement, cross-business lead/appointment isolation, role-denied admin actions, and separation from the demo.
+
+
+## Railway/Container preparation
+
+The admin service has its **own** `admin_portal/Dockerfile` and `admin_portal/railway.json`. Build from the repository root (`docker build -f admin_portal/Dockerfile .`), configure admin secrets privately, and **do not** reuse the existing BizBug demo service. This installs admin-only dependencies and runs on `$PORT`.
+
+Do not deploy publicly until secrets, PostgreSQL, backups, reverse-proxy TLS handling, recovery and edge rate limiting are validated. Railway deployment is not performed by this version.
