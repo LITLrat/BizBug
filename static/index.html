@@ -1,6 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#13252c"><meta name="description" content="BizBug: an interactive small-business assistant and demo."><title>BizBug · Assistant Studio</title><link rel="stylesheet" href="/static/styles.css"></head>
-<body>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#13252c"><meta name="description" content="BizBug: an interactive small-business assistant and demo."><title>BizBug · Assistant</title><link rel="stylesheet" href="/static/styles.css"></head><body>
 <div id="app" class="shell">
   <aside class="sidebar">
     <a class="brand" href="/"><div class="brand-icon">🐞</div><div><b>Biz<span class="brand-ai">Bug</span></b><small>Ass<span class="assistant-i">I</span>stant</small></div></a>
@@ -19,10 +18,11 @@
     <div class="sidebar-footer"><div class="sidebar-sparkle">✦</div><b>Built for your next client.</b><p>Switch industries, test conversations, and show business owners the possibilities.</p><span class="footer-version">DEMO STUDIO · V0.1</span></div>
   </aside>
   <main class="main">
-    <header class="topbar"><div class="crumb"><span>Workspace</span><span class="sep">/</span><b id="breadcrumb">Overview</b></div><div class="top-right"><span class="status-pip"></span><span>Demo environment</span><div class="theme-switcher" aria-label="Choose demo theme"><span class="theme-label">Theme</span><button class="theme-dot" type="button" data-theme-set="fern" title="Fern"></button><button class="theme-dot" type="button" data-theme-set="ocean" title="Ocean"></button><button class="theme-dot" type="button" data-theme-set="plum" title="Plum"></button><button class="theme-dot" type="button" data-theme-set="sunset" title="Sunset"></button></div><span class="top-divider"></span><span id="today-date"></span><button id="admin-access" class="icon-button" aria-label="Set admin access" title="Dashboard access">⚙</button></div></header>
-    <div class="page-content" id="page-content"><div class="loading-content">Loading Assistant...</div></div>
+    <header class="topbar"><div class="crumb"><span>Workspace</span><span class="sep">/</span><b id="breadcrumb">Overview</b></div><div class="top-right"><span class="status-pip"></span><span>Demo Environment</span><div class="locale-switcher" role="group" aria-label="App Language"><button type="button" data-ui-language="en" aria-pressed="true">English</button><button type="button" data-ui-language="es" aria-pressed="false">Español</button></div><div class="theme-switcher" aria-label="Choose demo theme"><span class="theme-label">Theme</span><button class="theme-dot" type="button" data-theme-set="fern" title="Fern"></button><button class="theme-dot" type="button" data-theme-set="ocean" title="Ocean"></button><button class="theme-dot" type="button" data-theme-set="plum" title="Plum"></button><button class="theme-dot" type="button" data-theme-set="sunset" title="Sunset"></button></div><span class="top-divider"></span><span id="today-date"></span><button id="admin-access" class="icon-button" aria-label="Administrative Access" title="Administrative Access"><svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></button></div></header>
+    <div class="page-content" id="page-content"><div class="loading-content">Loading assistant...</div></div>
   </main>
 </div>
 <div class="toast" id="toast" aria-live="polite"></div>
+
 <script src="/static/app.js" defer></script>
 </body></html>
