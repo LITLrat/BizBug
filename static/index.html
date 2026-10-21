@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#13252c"><meta name="description" content="BizBug: an interactive small-business assistant studio and demo."><title>BizBug · Assistant Studio</title><link rel="stylesheet" href="/static/styles.css"></head>
+<body>
+<div id="app" class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="/"><div class="brand-icon">🐞</div><div><b>biz<span class="brand-ai">bug</span></b><small>ASSISTANT STUDIO</small></div></a>
+    <div class="workspace-label">YOUR WORKSPACE</div>
+    <button class="workspace-picker" id="workspace-picker" type="button"><span class="workspace-avatar" id="side-avatar">BB</span><span class="workspace-data"><b id="side-name">Bella Bloom Salon</b><small id="side-type">Beauty & wellness</small></span><span class="chev">⌄</span></button>
+    <div id="workspace-menu" class="workspace-menu hidden"></div>
+    <div class="nav-label">WORKSPACE</div>
+    <nav aria-label="Main navigation">
+      <button class="nav-link active" data-page="overview"><span class="nav-glyph">▦</span>Overview</button>
+      <button class="nav-link" data-page="leads"><span class="nav-glyph">♙</span>Leads & contacts <span class="nav-count" id="nav-lead-count">0</span></button>
+      <button class="nav-link" data-page="appointments"><span class="nav-glyph">▤</span>Appointments</button>
+      <button class="nav-link" data-page="knowledge"><span class="nav-glyph">▧</span>Knowledge base</button>
+      <button class="nav-link" data-page="settings"><span class="nav-glyph">⚙</span>Business setup</button>
+      <button class="nav-link" data-page="integrations"><span class="nav-glyph">◈</span>Calendar & SMS</button>
+    </nav>
+    <div class="sidebar-footer"><div class="sidebar-sparkle">✦</div><b>Built for your next client.</b><p>Switch industries, test conversations, and show business owners the possibilities.</p><span class="footer-version">DEMO STUDIO · V0.1</span></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div class="crumb"><span>Workspace</span><span class="sep">/</span><b id="breadcrumb">Overview</b></div><div class="top-right"><span class="status-pip"></span><span>Demo environment</span><span class="top-divider"></span><span id="today-date"></span><button id="admin-access" class="icon-button" aria-label="Set admin access" title="Dashboard access">⚙</button></div></header>
+    <div class="page-content" id="page-content"><div class="loading-content">Loading assistant studio...</div></div>
+  </main>
+</div>
+<div class="toast" id="toast" aria-live="polite"></div>
+<script src="/static/app.js" defer></script>
+</body></html>
