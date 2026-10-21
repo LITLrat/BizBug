@@ -23,7 +23,7 @@
  let sid=(body.session_id&&data.sessions[body.session_id])?body.session_id:null;
  if(!sid){sid=(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():'offline-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);data.sessions[sid]={bid:id,stage:'',state:{},lang:'en'};data.chats[id]=(data.chats[id]||0)+1;}
  const ss=data.sessions[sid];if(ss.bid!==id)return err('Session does not belong to this business',403);
- const text=String(body.message||'').trim().slice(0,1400),low=normalized(text);if(!text)return err('Empty message');ss.lang=inSpanish(text,ss.lang);const L=ss.lang;let answer='',options=[];
+ const text=String(body.message||'').trim().slice(0,1400),low=normalized(text);if(!text)return err('Empty message');ss.lang=['en','es'].includes(body.language)?body.language:inSpanish(text,ss.lang);const L=ss.lang;let answer='',options=[];
  const e=(en,es)=>translate(en,es,L);
  const ask={
   'booking.service':()=>{const service=text.replace('SERVICE::','').trim();if(b.services.some(v=>v.toLowerCase()===service.toLowerCase())){ss.state.service=b.services.find(v=>v.toLowerCase()===service.toLowerCase());ss.stage='booking.slot';options=slotOptions();return e('Select a preferred demo request time. Times are NOT verified calendar availability.','Elige un horario de demostración. La disponibilidad no está verificada.')}options=b.services.map(x=>'SERVICE::'+x);return e('Choose a service below:','Elige un servicio:');},
