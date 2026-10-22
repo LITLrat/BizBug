@@ -213,7 +213,7 @@ class BusinessInput(BaseModel):
     name: str = Field(min_length=2, max_length=90)
     category: str = Field(default='Other small business', max_length=80)
     email: str = Field(default='', max_length=120)
-    hours: str = Field(default='By appointment', max_length=120)
+    hours: str = Field(default='By appointment', max_length=500)
     location: str = Field(default='', max_length=120)
     tagline: str = Field(default='Here to help, any time.', max_length=160)
 
@@ -221,7 +221,7 @@ class SettingsInput(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=90)
     tagline: Optional[str] = Field(default=None, max_length=160)
     email: Optional[str] = Field(default=None, max_length=120)
-    hours: Optional[str] = Field(default=None, max_length=120)
+    hours: Optional[str] = Field(default=None, max_length=500)
     location: Optional[str] = Field(default=None, max_length=120)
     greeting: Optional[str] = Field(default=None, max_length=700)
     greeting_es: Optional[str] = Field(default=None, max_length=700)
@@ -266,6 +266,23 @@ def dashboard(bid: str):
                   'requests': len(appointments), 'faqs': len(faqs)}, 'ai_enabled': bool(OPENAI_API_KEY),
                 'demo_mode': DEMO_MODE, 'calendar_connected': bool(c.execute(
                     'SELECT 1 FROM calendar_connections WHERE business_id=?',(bid,)).fetchone())}
+
+@app.get('/api/businesses/{bid}/conversations', dependencies=[Depends(admin_access)])
+def conversation_history(bid: str):
+    """Bounded, business-scoped read-only history for the owner dashboard."""
+    with db() as c:
+        business_or_404(c, bid)
+        sessions = c.execute("""SELECT id, language, created_at, updated_at FROM chats
+                                WHERE business_id=? ORDER BY updated_at DESC LIMIT 50""", (bid,)).fetchall()
+        result = []
+        for session in sessions:
+            messages = [dict(m) for m in c.execute("""SELECT role, content, created_at FROM (
+                SELECT id, role, content, created_at FROM messages
+                WHERE business_id=? AND chat_id=? ORDER BY id DESC LIMIT 40
+            ) ORDER BY id ASC""", (bid, session['id'])).fetchall()]
+            result.append({**dict(session), 'messages': messages})
+        return {'conversations': result}
+
 
 @app.post('/api/businesses', dependencies=[Depends(admin_access)])
 def create_business(body: BusinessInput):
