@@ -396,20 +396,90 @@ def normalize(s):
     return re.sub(r'[^a-z0-9áéíóúñ ]', ' ', s.lower()).strip()
 
 
+# Retrieval uses verified, business-specific FAQ facts even without an AI API key.
+SEARCH_STOP_WORDS = {'how','do','you','what','the','are','can','to','my','does','is','a','an','for',
+                     'i','me','your','que','cuanto','de','el','la','los','las','un','una','tienen',
+                     'con','much','cost','costs','price','prices','pricing','charge','charges','fee',
+                     'fees','tell','please','about','would','like','know','some','this','there',
+                     'and','with','howmuch','whatsoever'}
+PRICE_RE = re.compile(r'\$\s*\d+(?:,\d{3})*(?:\.\d{1,2})?')
+PRICE_INTENT_RE = re.compile(r'\b(how much|price|prices|pricing|cost|costs|charge|charges|rate|rates|fee|fees|cu[aá]nto|cuesta|cuestan|precio|precios|cu[aá]l es el precio)\b', re.I)
+
+
+def search_terms(s):
+    """Normalize simple plurals and keep distinctive service names."""
+    result = set()
+    for token in normalize(s).split():
+        if token in ('extensiones', 'extension', 'extensions'):
+            token = 'extension'
+        elif token.endswith('ies') and len(token) > 5:
+            token = token[:-3] + 'y'
+        elif token.endswith('s') and len(token) > 4 and not token.endswith(('ss', 'us', 'is')):
+            token = token[:-1]
+        if len(token) > 2 and token not in SEARCH_STOP_WORDS and not token.isdigit():
+            result.add(token)
+    return result
+
+
+def price_items(content):
+    """Find individual service prices in a one-line or multiline list."""
+    previous_end = 0
+    for match in PRICE_RE.finditer(content or ''):
+        before = content[previous_end:match.start()]
+        previous_end = match.end()
+        label = re.split(r'[\n;|•] |[\n;|•]', before)[-1].strip(' .,:\t\r-–')
+        label = re.sub(r'\s+', ' ', label)
+        if not label or len(label) > 100:
+            continue
+        yield label, match.group(0).replace(' ', '')
+
+
+def price_answer(faqs, knowledge, message, lang='en'):
+    """Answer a specific pricing inquiry using only saved business facts."""
+    if not PRICE_INTENT_RE.search(message):
+        return None
+    requested = search_terms(message)
+    if not requested:
+        return None
+    best = None
+    for source in [f.get('answer') or '' for f in faqs] + [knowledge or '']:
+        for label, amount in price_items(source):
+            labels = search_terms(label)
+            overlap = len(labels & requested)
+            if not overlap:
+                continue
+            exact = normalize(label).strip() == normalize(message).strip()
+            strength = (overlap, int(exact), -len(labels), -len(label))
+            if best is None or strength > best[0]:
+                best = (strength, label, amount)
+    if best:
+        label, amount = best[1:]
+        return f'{label}: {amount}'
+    return None
+
+
 def faq_match(c, bid, message):
-    """Small demo keyword retrieval; LLM is preferred for broader natural-language Q&A."""
-    stop = {'how','do','you','what','the','are','can','to','my','does','is','a','an','for',
-            'i','me','your','que','cuanto','de','el','la','los','las','un','una','tienen','con'}
-    tokens = set(t for t in normalize(message).split() if len(t)>2 and t not in stop)
-    best = None; score = 0
-    for f in c.execute('SELECT * FROM faqs WHERE business_id=?', (bid,)):
-        kw = set(normalize(f['keywords'] or '').split())
-        qs = set(normalize(f['question']).split()) - stop
-        hits = len(tokens & (kw | qs))
-        strength = hits * 2 + len(tokens & kw)
-        if strength > score:
-            score, best = strength, dict(f)
-    return best if score >= 3 else None
+    """Match FAQ titles, optional keywords and answer content."""
+    terms = search_terms(message)
+    if not terms:
+        if PRICE_INTENT_RE.search(message):
+            for row in c.execute('SELECT * FROM faqs WHERE business_id=?', (bid,)):
+                f = dict(row)
+                if re.search(r'\b(price|prices|pricing|costs|rates|menu|precios|tarifas)\b',
+                             normalize((f['question'] or '')+' '+(f['keywords'] or ''))):
+                    return f
+        return None
+    best = None
+    best_strength = 0
+    for row in c.execute('SELECT * FROM faqs WHERE business_id=?', (bid,)):
+        faq = dict(row)
+        title_hits = len(terms & search_terms(faq['question'] or ''))
+        keyword_hits = len(terms & search_terms(faq['keywords'] or ''))
+        answer_hits = len(terms & search_terms(faq['answer'] or ''))
+        strength = title_hits * 5 + keyword_hits * 4 + answer_hits * 2
+        if strength > best_strength:
+            best, best_strength = faq, strength
+    return best if best_strength >= 2 else None
 
 
 def optional_ai_reply(biz, faqs, message, lang):
@@ -642,13 +712,15 @@ def process_chat(bid: str, body: ChatInput, source='assistant', sender_phone=Non
                        'Puedo responder preguntas, explicar servicios, guardar datos de contacto y registrar solicitudes de citas. ¿Qué quieres probar?',lang)
             options=['Book appointment','Leave a message'] if lang=='en' else ['Solicitar cita','Dejar mensaje']
         else:
-            faq=faq_match(c,bid,message)
+            faqs=[dict(row) for row in c.execute('SELECT * FROM faqs WHERE business_id=?',(bid,))]
+            answer=price_answer(faqs,p['knowledge'],message,lang)
+            faq=faq_match(c,bid,message) if not answer else None
             if faq:
                 answer=(faq['answer_es'] or faq['answer']) if lang=='es' else faq['answer']
-            else:
+            elif not answer:
                 knowledge=normalize(p['knowledge'])
                 useful = [w for w in low.split() if len(w)>5 and w in knowledge]
-                answer=optional_ai_reply(p,[dict(r) for r in c.execute('SELECT * FROM faqs WHERE business_id=?',(bid,))],message,lang)
+                answer=optional_ai_reply(p,faqs,message,lang)
                 if not answer and useful:
                     answer=p['knowledge']
                 if not answer:
