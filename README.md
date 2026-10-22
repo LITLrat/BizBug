@@ -165,3 +165,12 @@ Neither sample branding nor the demo contains a real connected service. Do not i
 
 ## Opening the demo on iPhone
 Downloaded standalone HTML may not run inside iOS Files, Quick Look, or ChatGPT's document preview: those environments can block JavaScript or localStorage. BizBug v0.7 catches denied storage and displays a clear fallback message instead of an unexplained loading screen. The recommended interactive iPhone experience is an HTTPS-hosted BizBug demo opened directly in Safari. Do not expect HTML attachment preview to behave as a normal Safari tab.
+
+## v0.7 Demo UI updates
+
+- **Business Setup:** Hours supports multiline schedules up to 500 characters. Displayed hours do not automatically change connected-calendar scheduling rules.
+- **Overview:** All four KPI cards navigate to dedicated pages. Conversations displays the most recent 50 sessions (up to 40 messages each); the live route requires the existing administrator token.
+- **Live Assistant Playground:** A stable delegated Send / Enviar button and Enter-key handler replace form-dependent sending. Errors are displayed if the chat request fails or times out.
+- **Offline demo:** Conversations and their messages persist locally in the browser. No real calendar, Twilio, or AI calls are made by the offline HTML file.
+
+Run backend checks using `pytest -q tests`. For a browser smoke test, open the rebuilt `BizBug_Interactive_Demo.html`, submit by Send and Enter, click the four KPI cards, then save multiline business hours.
