@@ -375,6 +375,7 @@ async function openFollowup(id){try{const res=await api(`/businesses/${state.bus
  const m=modal('Follow-up email draft',`<div class="info-strip warning">This is a draft only. No email has been sent.</div><div class="field"><label>Draft Message</label><textarea id="followup-text" rows="13" readonly>${esc(text)}</textarea></div><button class="primary-btn" id="copy-followup">Copy draft</button>`);
  $('#copy-followup',m).addEventListener('click',async()=>{await navigator.clipboard.writeText(text);notify('Draft copied. Paste it in your email app.');});}catch(e){notify(e.message)}}
 function startup(){applyTheme(state.theme);setUiLanguage(state.uiLanguage,{reset:false});
+ document.getElementById('bizbug-home-link')?.addEventListener('click',event=>{event.preventDefault();switchPage('overview');});
  // Delegated listeners survive chat-card replacement. Both click and Enter call the same sender.
  function submitPlaygroundMessage(){const field=document.getElementById('chat-input');if(!field||state.busy)return;
   const message=field.value.trim();if(!message){notify(state.uiLanguage==='es'?'Escribe un mensaje para enviarlo.':'Type a message to send.');field.focus();return;}
