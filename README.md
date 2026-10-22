@@ -174,3 +174,15 @@ Downloaded standalone HTML may not run inside iOS Files, Quick Look, or ChatGPT'
 - **Offline demo:** Conversations and their messages persist locally in the browser. No real calendar, Twilio, or AI calls are made by the offline HTML file.
 
 Run backend checks using `pytest -q tests`. For a browser smoke test, open the rebuilt `BizBug_Interactive_Demo.html`, submit by Send and Enter, click the four KPI cards, then save multiline business hours.
+
+
+## v0.8: Smarter Knowledge Base Retrieval
+
+- Updated the Overview description and renamed the Knowledge Base button **Add New Question/Answer**.
+- FAQ retrieval now searches question titles, keywords, and **the answers themselves**.
+- A pricing entry such as `Haircut $30 Haircut and Style $45 Extensions $400` answers “How much are extensions?” with `Extensions: $400`.
+- Specific price answers can also come from Saved Business Information. The improvement works in both the server and offline demo, with no AI API key required.
+- More nuanced questions still benefit from a configured AI model. BizBug must not invent missing business facts.
+- Browser-local data from an earlier downloaded HTML demo may not migrate to a new downloaded HTML file. Re-enter an FAQ when testing a separate downloaded demo; live-server database entries are unaffected.
+
+Run `pytest -q tests` and `python build_offline.py` to test or rebuild.
