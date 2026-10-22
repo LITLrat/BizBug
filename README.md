@@ -186,3 +186,32 @@ Run backend checks using `pytest -q tests`. For a browser smoke test, open the r
 - Browser-local data from an earlier downloaded HTML demo may not migrate to a new downloaded HTML file. Re-enter an FAQ when testing a separate downloaded demo; live-server database entries are unaffected.
 
 Run `pytest -q tests` and `python build_offline.py` to test or rebuild.
+
+## Semantic Knowledge Search (v0.11)
+
+BizBug now includes a **hybrid, business-scoped knowledge retrieval layer** for the hosted server.
+The assistant first identifies direct saved prices, then (when configured) searches FAQ answers,
+service lists, hours, locations and policy text by meaning with `text-embedding-3-small`.
+The response model receives only the matched verified passages. It must not invent a price
+or promise an appointment. If no passage meets the similarity threshold, the assistant
+can fall back to exact FAQ/keyword matching and otherwise ask the customer to leave a message.
+
+**Activation:** Set `OPENAI_API_KEY` in the server environment, `SEMANTIC_SEARCH_ENABLED=true`
+and optionally `OPENAI_EMBEDDING_MODEL` and `SEMANTIC_MIN_SIMILARITY` (default 0.57).
+No additional Python dependencies or vector database are required. The first question after
+adding knowledge creates cached vectors in SQLite, keyed by business, passage and content
+hash. Later queries reuse unchanged vectors; editing a FAQ invalidates that vector.
+Because this sends **business-authored text and customer questions** to the OpenAI API,
+obtain appropriate consent, write a privacy notice, and do not place sensitive client or
+regulated records in the Knowledge Base without suitable agreements and controls.
+The server-side key is never sent to customers' browsers.
+
+**Important demo distinction:** The downloadable single-file HTML works offline,
+without an API key or external calls. Its existing keyword and price matcher continues
+to work, but full semantic retrieval requires a deployed BizBug backend and a working
+OpenAI API key. There is no simulated claim of live AI capabilities in the offline file.
+
+**Testing:** Run `pytest -q tests`. The semantic tests use mocked vectors/response text,
+not a live API connection. Validate actual recall, precision, latency, pricing and
+privacy on real customer knowledge before commercial rollout. The similarity threshold
+should be tuned using examples from each business sector.
