@@ -127,3 +127,8 @@ body[data-theme] .live-label{background:var(--mint);color:var(--theme-ink)}
 .history-role{display:block;font-size:10px;font-weight:800;color:var(--green);margin-bottom:5px}
 .history-message p{margin:0;line-height:1.55;overflow-wrap:anywhere;font-size:12px}
 @media(max-width:560px){#chat-send{min-width:64px;padding:0 8px}.conversation-entry summary{padding:14px}}
+
+/* Actual BizBug artwork, not an emoji badge. */
+.brand .brand-icon{display:block;width:42px;height:42px;object-fit:contain;object-position:center;background:transparent!important;flex-shrink:0;box-shadow:none;}
+.brand:hover .brand-icon{filter:brightness(1.07)}
+@media(max-width:560px){.brand .brand-icon{width:34px;height:34px}}
