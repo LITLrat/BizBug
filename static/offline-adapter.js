@@ -14,6 +14,38 @@
  const date=()=>new Date().toISOString();
  const normalized=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').trim();
  const f_email=s=>{let x=String(s).match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/);return x?x[0].toLowerCase():null};
+ // Match saved FAQ answers, including specific prices in a one-line service list.
+ const words=s=>{const stop=new Set('how do you what the are can to my does is a an for i me your que cuanto de el la los las un una tienen con much cost costs price prices pricing charge charges fee fees tell please about would like know some this there and with'.split(' '));return new Set(normalized(s).split(/\s+/).map(t=>t==='extensiones'||t==='extensions'?'extension':t.endsWith('ies')&&t.length>5?t.slice(0,-3)+'y':t.endsWith('s')&&t.length>4&&!/(ss|us|is)$/.test(t)?t.slice(0,-1):t).filter(t=>t.length>2&&!stop.has(t)&&!/^[0-9]+$/.test(t)));};
+ const overlap=(a,b)=>[...a].filter(x=>b.has(x)).length;
+ const priceIntent=/\b(how much|price|prices|pricing|cost|costs|charge|charges|rate|rates|fee|fees|cuanto|cuesta|cuestan|precio|precios)\b/i;
+ function specificPrice(faqs,knowledge,question){
+   if(!priceIntent.test(normalized(question)))return null;
+   const query=words(question);if(!query.size)return null;
+   let best=null;
+   for(const source of [...faqs.map(f=>f.answer||''),knowledge||'']){
+     let previous=0;const money=/\$\s*\d+(?:,\d{3})*(?:\.\d{1,2})?/g;let m;
+     while((m=money.exec(source))){
+       const before=source.slice(previous,m.index);previous=money.lastIndex;
+       const label=before.split(/[\n;|•]/).pop().trim().replace(/^[\s.,:–-]+|[\s.,:–-]+$/g,'').replace(/\s+/g,' ');
+       if(!label||label.length>100)continue;
+       const labels=words(label),hits=overlap(labels,query);if(!hits)continue;
+       const score=hits*100-labels.size*2-label.length/1000;
+       if(!best||score>best.score)best={label,price:m[0].replace(/\s+/g,''),score};
+     }
+   }
+   return best?best.label+': '+best.price:null;
+ }
+ function findFaq(faqs,question){
+   const query=words(question);
+   if(!query.size){
+     if(priceIntent.test(normalized(question)))return faqs.find(f=>/\b(price|prices|pricing|costs|rates|menu|precios|tarifas)\b/.test(normalized((f.question||'')+' '+(f.keywords||''))))||null;
+     return null;
+   }
+   let best=null,score=0;
+   for(const faq of faqs){const s=overlap(query,words(faq.question||''))*5+overlap(query,words(faq.keywords||''))*4+overlap(query,words(faq.answer||''))*2;
+     if(s>score){best=faq;score=s;}}
+   return score>=2?best:null;
+ }
  const inSpanish=(s,old)=>/[¿¡áéíóúñ]|\b(hola|quiero|necesito|cuanto|precio|cita|horario|gracias|español|reservar|nombre|correo|mañana|corte)\b/i.test(s)?'es':/\b(hello|hi|book|appointment|english)\b/i.test(s)?'en':old;
  const translate=(en,es,lang)=>lang==='es'?es:en;
  const activities=(bid,kind,description)=>{(data.activities[bid]??=[]).unshift({id:Date.now(),business_id:bid,kind,description,created_at:date()});};
@@ -41,9 +73,10 @@
  else if(/\b(appointment|book|booking|schedule|cita|agendar|reservar)\b/i.test(low)){ss.stage='booking.service';answer=e('Sure! Which service would you like?','¡Claro! ¿Qué servicio deseas?');options=b.services.map(s=>'SERVICE::'+s);}
  else if(/(leave a message|call me|contact me|estimate|quote|presupuesto|cotizacion|dejar mensaje|someone contact|talk to a person)/i.test(low)){ss.stage='lead.name';answer=e('Happy to help. What is your name?','Con gusto. ¿Cómo te llamas?');}
  else if(/^(hi|hello|hey|hola|buenos dias)/i.test(low)){answer=L==='es'?b.greeting_es:b.greeting;options=L==='es'?['Solicitar cita','Dejar mensaje']:['Book appointment','Leave a message'];}
- else {const terms=low.split(/\s+/).filter(t=>t.length>2&&!['the','are','how','what','you','with','for','que','los','las','como','donde','much','does'].includes(t));let best,score=0;for(const q of faqs){const corpus=normalized(q.question+' '+(q.keywords||''));const hits=terms.filter(t=>corpus.split(' ').includes(t)).length;if(hits>score){score=hits;best=q;}}
- if(best&&score>0)answer=L==='es'?(best.answer_es||best.answer):best.answer;
- else if(terms.some(t=>normalized(b.knowledge).includes(t))){answer=b.knowledge;}
+ else {const terms=words(text);const direct=specificPrice(faqs,b.knowledge,text);const best=direct?null:findFaq(faqs,text);
+ if(direct)answer=direct;
+ else if(best)answer=L==='es'?(best.answer_es||best.answer):best.answer;
+ else if([...terms].some(t=>words(b.knowledge).has(t))){answer=b.knowledge;}
  else{answer=e("I don't have a verified answer to that. I can save your contact details for a follow-up or take an appointment request.",
  "No tengo una respuesta verificada. Puedo guardar tus datos para que el equipo te contacte o registrar una solicitud de cita.");options=L==='es'?['Dejar mensaje','Solicitar cita']:['Leave a message','Book appointment'];}}
  const at=date();ss.updated_at=at;
