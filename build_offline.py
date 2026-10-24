@@ -10,6 +10,7 @@ p=root/'static'
 html=(p/'index.html').read_text()
 css=(p/'styles.css').read_text().replace("@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');",'')
 js=(p/'app.js').read_text().replace('location.origin', "'https://YOUR-LIVE-DOMAIN.example'")
+crm_js=(p/'crm-ui.js').read_text()
 adapter=(p/'offline-adapter.js').read_text().replace('new URL(url,location.href)', "new URL(url,location.href==='about:blank'?'https://demo.local':location.href)")
 seed={
  'businesses':[], 'faqs':{}, 'leads':{}, 'activities':{}
@@ -28,8 +29,8 @@ for x in SEEDS:
  seed['activities'][x['id']]=[{'id':idx+1,'business_id':x['id'],'kind':'lead','description':'Sample lead received from '+name,'created_at':now} for idx,(name,_,_) in enumerate(sample.get(x['id'],[]))]
 adapter=adapter.replace('__INITIAL_DATA__',json.dumps(seed,ensure_ascii=False))
 html=html.replace('<link rel="stylesheet" href="/static/styles.css">','<style>'+css+'</style>')
-html=html.replace('<script src="/static/app.js" defer></script>',
- '''<script>'''+adapter.replace('</script>','<\\/script>')+'''</script><script>'''+js.replace('</script>','<\\/script>')+'''</script>''')
+html=html.replace('<script src="/static/crm-ui.js" defer></script>\n<script src="/static/app.js" defer></script>',
+ '''<script>'''+adapter.replace('</script>','<\\/script>')+'''</script><script>'''+crm_js.replace('</script>','<\\/script>')+'''</script><script>'''+js.replace('</script>','<\\/script>')+'''</script>''')
 html=html.replace('<title>BizBug · Assistant Studio</title>', '<title>BizBug · Offline Sales Demo</title>')
 html=html.replace('Demo environment</span>', 'Offline demo · this device only</span>')
 destination=root.parent/'BizBug_Interactive_Demo.html'
