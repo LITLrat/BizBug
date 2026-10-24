@@ -110,3 +110,20 @@ def test_crm_scripts_are_syntactically_valid_and_wired():
     assert "'pipeline':crmPipelinePage" in ui
     assert "'tasks':crmTasksPage" in ui
     assert "'reports':crmReportsPage" in ui
+
+
+def test_offline_bundle_includes_crm_files(tmp_path):
+    """The one-file demo must not fetch CRM scripts over the network."""
+    base=Path(__file__).resolve().parents[1]
+    source=(base/'build_offline.py').read_text()
+    assert "crm_js=(p/'crm-ui.js').read_text()" in source
+    assert '<script src="/static/crm-ui.js" defer></script>' in source
+    adapter=(base/'static'/'offline-adapter.js').read_text()
+    assert "if(seg[3]==='crm')" in adapter
+    assert 'crm:crmSnapshot(id)' in adapter
+    if shutil.which('node'):
+        script=adapter.replace('__INITIAL_DATA__','{"businesses":[],"leads":{},"faqs":{},"activities":{}}')
+        target=tmp_path/'offline-adapter.js'
+        target.write_text(script)
+        result=subprocess.run(['node','--check',str(target)],capture_output=True,text=True)
+        assert result.returncode==0,result.stderr
