@@ -426,6 +426,69 @@ def search_terms(s):
     return result
 
 
+
+def business_fact_intent(message):
+    """Classify requests for structured, owner-entered business facts.
+
+    These facts have a reliable source of truth in Business Setup. A semantic
+    top-k search is the wrong way to answer questions asking for *all* services.
+    """
+    low = normalize(message)
+    if low in ('what can you do', 'help', 'help me', 'que puedes hacer', 'ayuda'):
+        return None  # General assistant-help prompts have their own route.
+    if PRICE_INTENT_RE.search(message):
+        # Price questions need verified prices, not a bare services list.
+        return None
+    if (re.search(r"\b(services?|treatments?|offerings?|specialties|specialities|procedures?|"
+                  r"servicios?|tratamientos?|especialidades)\b", low)
+            and re.search(r"\b(list|all|every|everything|what|which|types?|kinds?|"
+                          r"available|offer|offered|provide|provides|have|do|show|tell|menu|"
+                          r"lista|listar|todos?|todas?|que|cuales|ofrecen?|ofrece|tienen?|disponibles?)\b", low)):
+        return 'services'
+    if (re.search(r"\b(what|which|everything|all|anything)\b.*\b(offer|provide)\b", low)
+            or re.search(r"\b(offer|provide)\b.*\b(what|which|everything|all)\b", low)
+            or re.fullmatch(r"what (?:do|does) (?:you|your (?:business|company)) do", low)):
+        return 'services'
+    if re.search(r"\b(que|cuales|todos|todas)\b.*\b(ofrecen?|ofrece|hacen|tienen)\b", low):
+        return 'services'
+    if (re.search(r"\b(hours?|opening|closing|open|close|closes|horarios?|"
+                  r"abren?|cierran?|abierto|abierta)\b", low)
+            and len(low.split()) > 1  # Give short one-word queries to specific FAQs.
+            and not re.search(r"\b(slots?|availability|available times|citas?)\b", low)):
+        return 'hours'
+    if re.search(r"\b(address|located|location|directions|direccion|ubicacion|"
+                 r"ubicados?|ubicadas?|donde|where)\b", low):
+        return 'location'
+    return None
+
+
+def business_fact_answer(business, message, lang):
+    """Answer broad factual questions from this business's saved fields only."""
+    intent = business_fact_intent(message)
+    if intent == 'services':
+        services = [str(service).strip() for service in (business.get('services') or [])
+                    if isinstance(service, str) and service.strip()]
+        if not services:
+            return msg("I don't have a confirmed list of services yet. I can take a message for the team.",
+                       'Aún no tengo una lista confirmada de servicios. Puedo dejar un mensaje para el equipo.', lang)
+        intro = msg(f'Here are the services currently listed for {business["name"]}:',
+                    f'Estos son los servicios registrados para {business["name"]}:', lang)
+        outro = msg('I can help you request an appointment for one of these.',
+                    'Puedo ayudarte a solicitar una cita para uno de estos servicios.', lang)
+        return intro + '\n' + '\n'.join('• ' + item for item in services) + '\n' + outro
+    if intent == 'hours':
+        hours = (business.get('hours') or '').strip()
+        return (msg('Our listed business hours are: ', 'Nuestro horario registrado es: ', lang) + hours
+                if hours else msg("I don't have confirmed business hours yet.",
+                                  'Aún no tengo un horario confirmado.', lang))
+    if intent == 'location':
+        location = (business.get('location') or '').strip()
+        return (msg('Our listed location is: ', 'Nuestra ubicación registrada es: ', lang) + location
+                if location else msg("I don't have a confirmed location yet.",
+                                     'Aún no tengo una ubicación confirmada.', lang))
+    return None
+
+
 def price_items(content):
     """Read adjacent priced items, including one-line lists without separators.
 
@@ -750,6 +813,12 @@ def process_chat(bid: str, body: ChatInput, source='assistant', sender_phone=Non
             answer=msg(f'Perfect! I saved your message and contact information for the {p["name"]} team. They can follow up with you. Anything else?',
                        f'¡Perfecto! Guardé tu mensaje y datos para el equipo de {p["name"]}. Podrán contactarte. ¿Algo más?',lang)
             state={}; stage=''
+        elif (fact_answer := business_fact_answer(p, message, lang)) is not None:
+            # Owner-entered structured facts outrank semantic search. This also
+            # handles 'Which services can I book?' before the booking workflow.
+            answer=fact_answer
+            if business_fact_intent(message) == 'services' and p['services']:
+                options=['Book appointment'] if lang=='en' else ['Solicitar cita']
         elif any(s in low for s in ('appointment','book','booking','schedule','cita','agendar','reservar','schedule me')):
             answer=respond(msg('Sure! What service would you like to request?', '¡Claro! ¿Qué servicio deseas solicitar?',lang),'booking.service')
             options=['SERVICE::'+s for s in p['services']]

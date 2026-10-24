@@ -224,3 +224,11 @@ should be tuned using examples from each business sector.
 - Adds those concepts as search hints to semantic retrieval, with a more accommodating default similarity threshold (0.40). Calibrate this against real support questions before relying on it for unsupervised commercial use.
 - Logs *types* of OpenAI embedding/response failures without leaking API keys or customer chat content.
 - Provides regression tests against the exact faulty salon question and irrelevant FAQ matches.
+
+
+## v0.13: Complete Business Facts Answers
+
+- Answer requests to list all services directly from the selected business's saved Business Setup services, in order, regardless of embeddings availability.
+- Also handle common business-hours and location questions using owner-entered values.
+- Preserve booking and pricing intents, Spanish replies, and business-data isolation. No extra OpenAI calls for these structured facts.
+- Regression coverage includes the real customer question `List all services that you offer` and updated settings.
