@@ -4,14 +4,16 @@ const $$=(sel,base=document)=>[...base.querySelectorAll(sel)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const viewText=s=>esc(s).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
 let storedAdminToken='';try{storedAdminToken=sessionStorage.getItem('bizbug_admin')||'';}catch{}
-const state={businesses:[],businessId:'bloom',page:'overview',data:null,chatMessages:[],sessionId:null,busy:false,language:'en',chatOptions:[],token:storedAdminToken,integrations:null,smsDemoSession:null,smsDemoMessages:[],smsDemoOptions:[],conversations:null,theme:(localStorage.getItem('bizbug.theme')||'fern'),uiLanguage:(localStorage.getItem('bizbug.uiLanguage')==='es'?'es':'en')};
+function readDemoPreference(key,fallback=''){try{return localStorage.getItem(key)??fallback;}catch{return fallback;}}
+function saveDemoPreference(key,value){try{localStorage.setItem(key,value);}catch{}}
+const state={businesses:[],businessId:'bloom',page:'overview',data:null,chatMessages:[],sessionId:null,busy:false,language:'en',chatOptions:[],token:storedAdminToken,integrations:null,smsDemoSession:null,smsDemoMessages:[],smsDemoOptions:[],conversations:null,theme:readDemoPreference('bizbug.theme','fern'),uiLanguage:(readDemoPreference('bizbug.uiLanguage')==='es'?'es':'en')};
 const icons={chat:'🗣',lead:'✓',appointment:'🗓',faq:'?',activity:'✦'};
 const dateFmt=s=>{if(!s)return '—';try{return new Date(s).toLocaleDateString(state.uiLanguage==='es'?'es-ES':undefined,{month:'short',day:'numeric',year:'numeric'});}catch{return s;}};
 const timeFmt=s=>{if(!s)return '—';try{return new Date(s).toLocaleString(state.uiLanguage==='es'?'es-ES':undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch{return s;}};
 const short=s=>(s||'').length>74?(s.slice(0,72)+'…'):s;
 const current=()=>state.businesses.find(b=>b.id===state.businessId)||state.businesses[0]||{};
 const themeNames={fern:'Fern',ocean:'Ocean',plum:'Plum',sunset:'Sunset'};
-function applyTheme(theme){state.theme=themeNames[theme]?theme:'fern';document.body.setAttribute('data-theme',state.theme);localStorage.setItem('bizbug.theme',state.theme);const meta=document.querySelector('meta[name="theme-color"]');if(meta){const colors={fern:'#162930',ocean:'#102733',plum:'#24162b',sunset:'#2f1f1a'};meta.setAttribute('content',colors[state.theme]||'#162930');}$$('[data-theme-set]').forEach(btn=>btn.classList.toggle('active',btn.dataset.themeSet===state.theme));}
+function applyTheme(theme){state.theme=themeNames[theme]?theme:'fern';document.body.setAttribute('data-theme',state.theme);saveDemoPreference('bizbug.theme',state.theme);const meta=document.querySelector('meta[name="theme-color"]');if(meta){const colors={fern:'#162930',ocean:'#102733',plum:'#24162b',sunset:'#2f1f1a'};meta.setAttribute('content',colors[state.theme]||'#162930');}$$('[data-theme-set]').forEach(btn=>btn.classList.toggle('active',btn.dataset.themeSet===state.theme));}
 function wireThemeControls(base=document){base.querySelectorAll('[data-theme-set]').forEach(btn=>{btn.onclick=()=>applyTheme(btn.dataset.themeSet);btn.classList.toggle('active',btn.dataset.themeSet===state.theme);});}
 
 const spanishLabels={
@@ -171,7 +173,7 @@ const spanishLabels={
 };
 function setUiLanguage(lang,{reset=true}={}){
  state.uiLanguage=lang==='es'?'es':'en';
- try{localStorage.setItem('bizbug.uiLanguage',state.uiLanguage);}catch{}
+ saveDemoPreference('bizbug.uiLanguage',state.uiLanguage);
  document.documentElement.lang=state.uiLanguage;
  document.querySelectorAll('[data-ui-language]').forEach(btn=>{let active=btn.dataset.uiLanguage===state.uiLanguage;btn.classList.toggle('active',active);btn.setAttribute('aria-pressed',String(active));});
  if(reset){state.sessionId=null;state.chatMessages=[];state.chatOptions=[];state.language=state.uiLanguage;}
@@ -233,11 +235,17 @@ function mainOverview(){const d=state.data,b=current(),s=d.stats;
  ['✦','Keep FAQs and service details current','knowledge']].map(([count,description,dest])=>`<button class="action-card" data-goto="${dest}" style="width:100%;margin-bottom:9px"><span class="guide-dot">${count}</span><span><b>${description}</b><small>Open ${dest==='knowledge'?'knowledge base':dest} →</small></span></button>`).join('')}</div></section></div>
  <div>${chatCard()}</div></div>`;}
 function chipLabel(raw){if(raw.startsWith('SERVICE::'))return raw.slice(9);if(raw.startsWith('SLOT::')){try{return new Date(raw.slice(6)).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch{return raw.slice(6)}}return raw;}
+function visibleChatOptions(){
+ // The default prompts are conversation starters, not replies to follow-up questions.
+ if(state.chatOptions.length)return state.chatOptions;
+ if(state.chatMessages.some(m=>m.role==='user'))return [];
+ return state.uiLanguage==='es'?['¿Cuál es su horario?','Solicitar cita','Dejar mensaje']:['What are your hours?','Book appointment','Leave a message'];
+}
 function chatCard(){const b=current();if(!state.chatMessages.length)state.chatMessages=[{role:'assistant',text:state.uiLanguage==='es'?b.greeting_es:b.greeting}];
- const options=state.chatOptions.length?state.chatOptions:(state.uiLanguage==='es'?['¿Cuál es su horario?','Solicitar cita','Dejar mensaje']:['What are your hours?','Book appointment','Leave a message']);
+ const options=visibleChatOptions();
  return `<section class="panel chat-panel"><div class="panel-titlebar"><div><h3>Live Assistant Playground</h3><p>Try it as your customer would</p></div><span class="live-label">Try me</span></div>
  <div class="chat-header"><div class="chat-avatar">${esc(b.initials)}</div><div><strong>${esc(b.name)}</strong><small><span class="online-pip"></span>Virtual assistant · Always available</small></div><span class="chat-status">Online</span></div>
- <div class="chat-surface" id="chat-messages">${state.chatMessages.map(m=>`<div class="msg-row ${m.role==='user'?'user':''}">${m.role==='assistant'?'<div class="msg-avatar">✳</div>':''}<div class="bubble">${viewText(m.text)}</div></div>`).join('')}<div class="chat-options" id="chat-options">${options.map(option=>`<button class="quick-chip" data-send="${esc(option)}">${esc(chipLabel(option))}</button>`).join('')}</div></div>
+ <div class="chat-surface" id="chat-messages">${state.chatMessages.map(m=>`<div class="msg-row ${m.role==='user'?'user':''}">${m.role==='assistant'?'<div class="msg-avatar">✳</div>':''}<div class="bubble">${viewText(m.text)}</div></div>`).join('')}${options.length?`<div class="chat-options" id="chat-options">${options.map(option=>`<button class="quick-chip" data-send="${esc(option)}">${esc(chipLabel(option))}</button>`).join('')}</div>`:''}</div>
  <form class="chat-compose" id="chat-form"><div class="compose-wrap"><input type="text" id="chat-input" name="message" maxlength="1400" placeholder="Ask a question or type a message..." aria-label="Chat message" autocomplete="off" spellcheck="true"><button class="send-btn" id="chat-send" type="button" aria-label="Send Message" ${state.busy?'disabled':''}>${state.busy?'Sending…':(state.uiLanguage==='es'?'Enviar':'Send')} <span aria-hidden="true">↗</span></button></div><div class="chat-disclaimer">Demo assistant · Appointments are requests until confirmed by the business</div></form>
  <div class="chat-controls"><span></span><div><button class="inline-btn" id="reset-chat">Reset Chat</button></div></div></section>`;}
 async function loadConversations(){
@@ -375,6 +383,7 @@ async function openFollowup(id){try{const res=await api(`/businesses/${state.bus
  const m=modal('Follow-up email draft',`<div class="info-strip warning">This is a draft only. No email has been sent.</div><div class="field"><label>Draft Message</label><textarea id="followup-text" rows="13" readonly>${esc(text)}</textarea></div><button class="primary-btn" id="copy-followup">Copy draft</button>`);
  $('#copy-followup',m).addEventListener('click',async()=>{await navigator.clipboard.writeText(text);notify('Draft copied. Paste it in your email app.');});}catch(e){notify(e.message)}}
 function startup(){applyTheme(state.theme);setUiLanguage(state.uiLanguage,{reset:false});
+ document.body.classList.add('bizbug-ready');
  document.getElementById('bizbug-home-link')?.addEventListener('click',event=>{event.preventDefault();switchPage('overview');});
  // Delegated listeners survive chat-card replacement. Both click and Enter call the same sender.
  function submitPlaygroundMessage(){const field=document.getElementById('chat-input');if(!field||state.busy)return;
