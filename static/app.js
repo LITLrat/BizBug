@@ -233,11 +233,17 @@ function mainOverview(){const d=state.data,b=current(),s=d.stats;
  ['✦','Keep FAQs and service details current','knowledge']].map(([count,description,dest])=>`<button class="action-card" data-goto="${dest}" style="width:100%;margin-bottom:9px"><span class="guide-dot">${count}</span><span><b>${description}</b><small>Open ${dest==='knowledge'?'knowledge base':dest} →</small></span></button>`).join('')}</div></section></div>
  <div>${chatCard()}</div></div>`;}
 function chipLabel(raw){if(raw.startsWith('SERVICE::'))return raw.slice(9);if(raw.startsWith('SLOT::')){try{return new Date(raw.slice(6)).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch{return raw.slice(6)}}return raw;}
+function visibleChatOptions(){
+ // The default prompts are conversation starters, not replies to follow-up questions.
+ if(state.chatOptions.length)return state.chatOptions;
+ if(state.chatMessages.some(m=>m.role==='user'))return [];
+ return state.uiLanguage==='es'?['¿Cuál es su horario?','Solicitar cita','Dejar mensaje']:['What are your hours?','Book appointment','Leave a message'];
+}
 function chatCard(){const b=current();if(!state.chatMessages.length)state.chatMessages=[{role:'assistant',text:state.uiLanguage==='es'?b.greeting_es:b.greeting}];
- const options=state.chatOptions.length?state.chatOptions:(state.uiLanguage==='es'?['¿Cuál es su horario?','Solicitar cita','Dejar mensaje']:['What are your hours?','Book appointment','Leave a message']);
+ const options=visibleChatOptions();
  return `<section class="panel chat-panel"><div class="panel-titlebar"><div><h3>Live Assistant Playground</h3><p>Try it as your customer would</p></div><span class="live-label">Try me</span></div>
  <div class="chat-header"><div class="chat-avatar">${esc(b.initials)}</div><div><strong>${esc(b.name)}</strong><small><span class="online-pip"></span>Virtual assistant · Always available</small></div><span class="chat-status">Online</span></div>
- <div class="chat-surface" id="chat-messages">${state.chatMessages.map(m=>`<div class="msg-row ${m.role==='user'?'user':''}">${m.role==='assistant'?'<div class="msg-avatar">✳</div>':''}<div class="bubble">${viewText(m.text)}</div></div>`).join('')}<div class="chat-options" id="chat-options">${options.map(option=>`<button class="quick-chip" data-send="${esc(option)}">${esc(chipLabel(option))}</button>`).join('')}</div></div>
+ <div class="chat-surface" id="chat-messages">${state.chatMessages.map(m=>`<div class="msg-row ${m.role==='user'?'user':''}">${m.role==='assistant'?'<div class="msg-avatar">✳</div>':''}<div class="bubble">${viewText(m.text)}</div></div>`).join('')}${options.length?`<div class="chat-options" id="chat-options">${options.map(option=>`<button class="quick-chip" data-send="${esc(option)}">${esc(chipLabel(option))}</button>`).join('')}</div>`:''}</div>
  <form class="chat-compose" id="chat-form"><div class="compose-wrap"><input type="text" id="chat-input" name="message" maxlength="1400" placeholder="Ask a question or type a message..." aria-label="Chat message" autocomplete="off" spellcheck="true"><button class="send-btn" id="chat-send" type="button" aria-label="Send Message" ${state.busy?'disabled':''}>${state.busy?'Sending…':(state.uiLanguage==='es'?'Enviar':'Send')} <span aria-hidden="true">↗</span></button></div><div class="chat-disclaimer">Demo assistant · Appointments are requests until confirmed by the business</div></form>
  <div class="chat-controls"><span></span><div><button class="inline-btn" id="reset-chat">Reset Chat</button></div></div></section>`;}
 async function loadConversations(){
