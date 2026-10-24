@@ -19,9 +19,10 @@ from html import escape as xml_escape
 from urllib.parse import parse_qsl
 from fastapi.responses import HTMLResponse, Response
 import integrations as x
+import crm
 import semantic_retrieval as semantic
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 from urllib import request as urlrequest
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -157,6 +158,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS sms_webhooks (sid TEXT PRIMARY KEY, business_id TEXT NOT NULL, sender TEXT NOT NULL, reply TEXT NOT NULL, created_at TEXT NOT NULL);
         ''')
         semantic.setup(c)
+        crm.setup(c)
         columns = {r['name'] for r in c.execute('PRAGMA table_info(appointments)')}
         if 'provider' not in columns:
             c.execute('ALTER TABLE appointments ADD COLUMN provider TEXT')
@@ -242,6 +244,46 @@ class FAQInput(BaseModel):
 class FollowupInput(BaseModel):
     lead_id: int
 
+class CRMLeadCreate(BaseModel):
+    name: str = Field(min_length=2,max_length=160)
+    email: str = Field(default='',max_length=160)
+    phone: str = Field(default='',max_length=40)
+    note: str = Field(default='',max_length=1000)
+    stage: Literal['new','contacted','qualified','proposal','won','lost'] = 'new'
+    deal_value: float = Field(default=0,ge=0,le=100000000)
+    owner: str = Field(default='',max_length=120)
+
+class CRMLeadUpdate(BaseModel):
+    name: Optional[str] = Field(default=None,min_length=2,max_length=160)
+    email: Optional[str] = Field(default=None,max_length=160)
+    phone: Optional[str] = Field(default=None,max_length=40)
+    note: Optional[str] = Field(default=None,max_length=1000)
+    stage: Optional[Literal['new','contacted','qualified','proposal','won','lost']] = None
+    deal_value: Optional[float] = Field(default=None,ge=0,le=100000000)
+    owner: Optional[str] = Field(default=None,max_length=120)
+
+class CRMNote(BaseModel):
+    text: str = Field(min_length=1,max_length=3000)
+
+class CRMTaskCreate(BaseModel):
+    title: str = Field(min_length=2,max_length=200)
+    details: str = Field(default='',max_length=1000)
+    lead_id: Optional[int] = Field(default=None,ge=1)
+    due_at: Optional[datetime] = None
+
+class CRMTaskUpdate(BaseModel):
+    title: Optional[str] = Field(default=None,min_length=2,max_length=200)
+    details: Optional[str] = Field(default=None,max_length=1000)
+    status: Optional[Literal['open','done']] = None
+    due_at: Optional[datetime] = None
+
+def crm_due(value):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        raise HTTPException(422,'Task due date must include a timezone')
+    return value.astimezone(timezone.utc).isoformat(timespec='seconds')
+
 @app.get('/health')
 def health():
     return {'status': 'ok', 'ai_enabled': bool(OPENAI_API_KEY)}
@@ -265,8 +307,9 @@ def dashboard(bid: str):
         faqs = [dict(x) for x in c.execute('SELECT * FROM faqs WHERE business_id=? ORDER BY id DESC', (bid,))]
         activities = [dict(x) for x in c.execute('SELECT * FROM activities WHERE business_id=? ORDER BY id DESC LIMIT 20', (bid,))]
         chats = c.execute('SELECT COUNT(*) n FROM chats WHERE business_id=?', (bid,)).fetchone()['n']
+        crm_data = crm.snapshot(c,bid)
         return {'business': p, 'leads': leads, 'appointments': appointments, 'faqs': faqs,
-                'activities': activities, 'stats': {'conversations': chats, 'leads': len(leads),
+                'activities': activities, 'crm': crm_data, 'stats': {'conversations': chats, 'leads': len(leads),
                   'requests': len(appointments), 'faqs': len(faqs)}, 'ai_enabled': bool(OPENAI_API_KEY), 'semantic_enabled': bool(OPENAI_API_KEY and SEMANTIC_SEARCH_ENABLED),
                 'demo_mode': DEMO_MODE, 'calendar_connected': bool(c.execute(
                     'SELECT 1 FROM calendar_connections WHERE business_id=?',(bid,)).fetchone())}
@@ -336,6 +379,47 @@ def followup(bid: str, body: FollowupInput):
                     f'I wanted to follow up on your question about {lead["note"] or "our services"}. '
                     'Do you have any questions or a good time for our team to reach you?\n\n'
                     f'Thank you,\n{p["name"]}', 'sent': False}
+
+
+@app.post('/api/businesses/{bid}/crm/leads', dependencies=[Depends(admin_access)])
+def crm_create_lead(bid: str, body: CRMLeadCreate):
+    with WRITE_LOCK, db() as c:
+        business_or_404(c,bid)
+        return crm.create_lead(c,bid,body)
+
+@app.put('/api/businesses/{bid}/crm/leads/{lead_id}', dependencies=[Depends(admin_access)])
+def crm_update_lead(bid: str, lead_id: int, body: CRMLeadUpdate):
+    with WRITE_LOCK, db() as c:
+        business_or_404(c,bid)
+        return crm.update_lead(c,bid,lead_id,body.model_dump(exclude_none=True))
+
+@app.get('/api/businesses/{bid}/crm/leads/{lead_id}', dependencies=[Depends(admin_access)])
+def crm_get_lead(bid: str, lead_id: int):
+    with db() as c:
+        business_or_404(c,bid)
+        return crm.lead_detail(c,bid,lead_id)
+
+@app.post('/api/businesses/{bid}/crm/leads/{lead_id}/notes', dependencies=[Depends(admin_access)])
+def crm_note(bid: str, lead_id: int, body: CRMNote):
+    with WRITE_LOCK, db() as c:
+        business_or_404(c,bid)
+        return crm.note(c,bid,lead_id,body.text)
+
+@app.post('/api/businesses/{bid}/crm/tasks', dependencies=[Depends(admin_access)])
+def crm_create_task(bid: str, body: CRMTaskCreate):
+    with WRITE_LOCK, db() as c:
+        business_or_404(c,bid)
+        data=body.model_copy(update={'due_at':crm_due(body.due_at)})
+        return crm.create_task(c,bid,data)
+
+@app.put('/api/businesses/{bid}/crm/tasks/{task_id}', dependencies=[Depends(admin_access)])
+def crm_update_task(bid: str, task_id: int, body: CRMTaskUpdate):
+    changes=body.model_dump(exclude_none=True)
+    if 'due_at' in changes:
+        changes['due_at']=crm_due(changes['due_at'])
+    with WRITE_LOCK, db() as c:
+        business_or_404(c,bid)
+        return crm.update_task(c,bid,task_id,changes)
 
 
 def lang_detect(message, previous='en'):
@@ -738,8 +822,8 @@ def process_chat(bid: str, body: ChatInput, source='assistant', sender_phone=Non
                     c.execute('INSERT INTO appointments (business_id,name,email,service,starts_at,status,created_at) VALUES(?,?,?,?,?,?,?)',
                         (bid,state['name'],email,state['service'],state['slot'],status,utc_now()))
                     appt_id=c.execute('SELECT last_insert_rowid()').fetchone()[0]
-                    c.execute('INSERT INTO leads(business_id,name,email,phone,source,note,created_at) VALUES(?,?,?,?,?,?,?)',
-                        (bid,state['name'],email,sender_phone or '',source,f'Appointment: {state["service"]}',utc_now()))
+                    c.execute('INSERT INTO leads(business_id,name,email,phone,source,note,created_at,chat_id) VALUES(?,?,?,?,?,?,?,?)',
+                        (bid,state['name'],email,sender_phone or '',source,f'Appointment: {state["service"]}',utc_now(),session_id))
                     confirmed=False
                     if provider_available:
                         try:
@@ -807,8 +891,8 @@ def process_chat(bid: str, body: ChatInput, source='assistant', sender_phone=Non
             answer=respond(msg('What can we help you with? A short message is perfect.',
                                '¿En qué te podemos ayudar? Un mensaje corto está bien.',lang), 'lead.note')
         elif stage=='lead.note':
-            c.execute('INSERT INTO leads (business_id,name,email,phone,source,note,created_at) VALUES(?,?,?,?,?,?,?)',
-                      (bid,state['name'],state['email'],state.get('phone',''),source,message[:500],utc_now()))
+            c.execute('INSERT INTO leads (business_id,name,email,phone,source,note,created_at,chat_id) VALUES(?,?,?,?,?,?,?,?)',
+                      (bid,state['name'],state['email'],state.get('phone',''),source,message[:500],utc_now(),session_id))
             track(c,bid,'lead',f'New lead: {state["name"]} asked about {message[:72]}')
             answer=msg(f'Perfect! I saved your message and contact information for the {p["name"]} team. They can follow up with you. Anything else?',
                        f'¡Perfecto! Guardé tu mensaje y datos para el equipo de {p["name"]}. Podrán contactarte. ¿Algo más?',lang)
