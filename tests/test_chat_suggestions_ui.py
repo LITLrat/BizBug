@@ -50,5 +50,11 @@ assert.deepEqual(visibleChatOptions(), []);
 state.chatOptions = ['SLOT::2026-10-26T14:00'];
 assert.deepEqual(visibleChatOptions(), state.chatOptions);
 """
+    syntax = subprocess.run(
+        ["node", "--check", str(Path(__file__).resolve().parents[1] / "static" / "app.js")],
+        capture_output=True,
+        text=True,
+    )
+    assert syntax.returncode == 0, syntax.stderr
     result = subprocess.run(["node", "-e", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
