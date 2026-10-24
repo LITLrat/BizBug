@@ -215,3 +215,12 @@ OpenAI API key. There is no simulated claim of live AI capabilities in the offli
 not a live API connection. Validate actual recall, precision, latency, pricing and
 privacy on real customer knowledge before commercial rollout. The similarity threshold
 should be tuned using examples from each business sector.
+
+
+## v0.12: More Reliable Knowledge Answers
+
+- Fixed the vague-word fallback that could return a haircut price for questions about blended highlights.
+- Recognizes clear color-service descriptions, such as “lighter blended streaks,” as potential balayage/highlighting questions, but only answers from business-authored facts.
+- Adds those concepts as search hints to semantic retrieval, with a more accommodating default similarity threshold (0.40). Calibrate this against real support questions before relying on it for unsupervised commercial use.
+- Logs *types* of OpenAI embedding/response failures without leaking API keys or customer chat content.
+- Provides regression tests against the exact faulty salon question and irrelevant FAQ matches.

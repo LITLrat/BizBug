@@ -5,6 +5,7 @@ content fingerprint to avoid repeated charges. Never embeds customer lead data.
 """
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -12,7 +13,7 @@ from datetime import datetime, timezone
 from urllib import request as urlrequest
 
 EMBEDDING_MODEL = os.environ.get('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small')
-MIN_SIMILARITY = min(0.95, max(0.30, float(os.environ.get('SEMANTIC_MIN_SIMILARITY', '0.57'))))
+MIN_SIMILARITY = min(0.95, max(0.30, float(os.environ.get('SEMANTIC_MIN_SIMILARITY', '0.40'))))
 MAX_DOCUMENTS = 80
 MAX_PASSAGE_LENGTH = 1100
 MONEY = re.compile(r'\$\s*\d+(?:,\d{3})*(?:\.\d{1,2})?')
@@ -118,6 +119,19 @@ def _cosine(a, b):
     return numerator / magnitude if magnitude else -1.0
 
 
+def retrieval_query(message):
+    """Add terminology to clearly expressed user intents, not to source facts.
+
+    Expanded terms are search hints only. Assistant replies must still be
+    grounded in business-authored FAQ passages and policies.
+    """
+    low = message.lower()
+    if (re.search(r'\b(hair|stylist|salon|highlight|streaks|balayage)\b', low)
+            and re.search(r'\b(lighter|lighten|blended|streaks?|highlight(?:s|ing)?|balayage)\b', low)):
+        return message + '\nSearch concepts: hair highlights, balayage color consultation.'
+    return message
+
+
 def retrieve(conn, bid, business, faqs, message, api_key, *, model=None,
              threshold=None, top_k=3):
     """Return matching evidence or [] when disabled, unrelated, or API unavailable.
@@ -147,8 +161,11 @@ def retrieve(conn, bid, business, faqs, message, api_key, *, model=None,
         missing.append(entry)
     try:
         # Query + uncached evidence in one request. Cached documents aren't rebilled.
-        embedded = embed_texts([message] + [e['text'] for e in missing],api_key,model)
-    except Exception:
+        embedded = embed_texts([retrieval_query(message)] + [e['text'] for e in missing],api_key,model)
+    except Exception as exc:
+        # Never log customer questions or secrets while troubleshooting.
+        logging.warning('Semantic embeddings unavailable (%s; status=%s)',
+                        type(exc).__name__, getattr(exc, 'code', 'n/a'))
         return []
     query_vector = embedded[0]
     for i, entry in enumerate(missing):

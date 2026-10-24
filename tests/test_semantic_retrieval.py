@@ -132,3 +132,32 @@ def test_passages_split_prices_and_preserve_provided_facts():
     assert len(prices)==3
     assert [(x['label'],x['price']) for x in prices]==[('Haircut','$30'),('Haircut and Style','$45'),('Extensions','$400')]
     assert any('cancel within 24 hours' in x['text'] for x in passages)
+
+
+def test_realistic_highlights_question_routes_to_balayage(monkeypatch):
+    """A customer describing the result they want must not receive haircut prices."""
+    question = "I'd like lighter, blended streaks in my hair. Should I meet with a stylist first?"
+    bid = 'bloom'
+    monkeypatch.setattr(server, 'OPENAI_API_KEY', '')
+    with server.db() as c:
+        faq = server.faq_match(c, bid, question)
+    assert faq and 'balayage' in faq['question'].lower()
+    reply = client.post(f'/api/businesses/{bid}/chat', json={'message': question}).json()['reply']
+    assert 'consultation' in reply.lower()
+    assert '$55' not in reply
+
+
+def test_single_shared_answer_word_cannot_select_irrelevant_faq():
+    bid = create_business('Strict Fallback Salon')
+    add_faq(bid, 'How much is a haircut?', 'Haircuts are $55 and depend on hair length.')
+    with server.db() as c:
+        result = server.faq_match(c, bid, 'I want my hair to look fabulous')
+    assert result is None
+
+
+def test_semantic_retrieval_query_expands_user_wording_without_changing_facts():
+    question = "I'd like lighter, blended streaks in my hair. Should I meet with a stylist first?"
+    query = semantic.retrieval_query(question)
+    assert 'balayage' in query.lower()
+    assert query.startswith(question)
+    assert semantic.retrieval_query('Is there wheelchair parking?') == 'Is there wheelchair parking?'
