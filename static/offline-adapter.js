@@ -5,7 +5,8 @@
  'use strict';
  const seed=__INITIAL_DATA__;
  const cacheKey='bizbug_offline_v2';
- function fresh(){return {businesses:seed.businesses.map(x=>({...x})),leads:structuredClone(seed.leads),appointments:{},faqs:structuredClone(seed.faqs),activities:structuredClone(seed.activities),chats:{},sessions:{},transcripts:{}};}
+ const cloneDemo=value=>typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value));
+ function fresh(){return {businesses:seed.businesses.map(x=>({...x})),leads:cloneDemo(seed.leads),appointments:{},faqs:cloneDemo(seed.faqs),activities:cloneDemo(seed.activities),chats:{},sessions:{},transcripts:{}};}
  let data;try{data=JSON.parse(localStorage.getItem(cacheKey))||fresh()}catch{data=fresh()}
  data.transcripts ||= {};
  const save=()=>{try{localStorage.setItem(cacheKey,JSON.stringify(data))}catch{}};
