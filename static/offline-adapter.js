@@ -9,6 +9,12 @@
  function fresh(){return {businesses:seed.businesses.map(x=>({...x})),leads:cloneDemo(seed.leads),appointments:{},faqs:cloneDemo(seed.faqs),activities:cloneDemo(seed.activities),chats:{},sessions:{},transcripts:{}};}
  let data;try{data=JSON.parse(localStorage.getItem(cacheKey))||fresh()}catch{data=fresh()}
  data.transcripts ||= {};
+ data.crmTasks ||= {};
+ data.crmEvents ||= {};
+ data.crmCounter ||= 100000;
+ (Object.keys(data.leads||{})).forEach(id=>(data.leads[id]||[]).forEach(l=>{
+   l.stage ??= 'new';l.deal_value ??= 0;l.owner ??= '';l.chat_id ??= null;
+ }));
  const save=()=>{try{localStorage.setItem(cacheKey,JSON.stringify(data))}catch{}};
  const respond=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});
  const err=(message,status=400)=>respond({detail:message},status);
@@ -52,7 +58,29 @@
  const activities=(bid,kind,description)=>{(data.activities[bid]??=[]).unshift({id:Date.now(),business_id:bid,kind,description,created_at:date()});};
  const slotOptions=()=>{let out=[];const d=new Date();for(let i=1;i<11;i++){const x=new Date(d);x.setDate(x.getDate()+i);if(x.getDay()===0||x.getDay()===6)continue;for(const h of [10,11,14,15]){x.setHours(h,0,0,0);out.push('SLOT::'+[x.getFullYear(),String(x.getMonth()+1).padStart(2,'0'),String(x.getDate()).padStart(2,'0')].join('-')+'T'+String(h).padStart(2,'0')+':00:00');if(out.length>=6)return out;}}return out};
  const business=id=>data.businesses.find(b=>b.id===id);
- const dashboard=id=>{const b=business(id);if(!b)return null;return {business:b,leads:data.leads[id]||[],appointments:data.appointments[id]||[],faqs:data.faqs[id]||[],activities:data.activities[id]||[],stats:{conversations:data.chats[id]||0,leads:(data.leads[id]||[]).length,requests:(data.appointments[id]||[]).length,faqs:(data.faqs[id]||[]).length},ai_enabled:false,demo_mode:true,calendar_connected:false}};
+ const crmEvent=(bid,lead_id,kind,details)=>{(data.crmEvents[bid]??=[]).unshift({id:++data.crmCounter,business_id:bid,lead_id,kind,details,created_at:date()});};
+ const registerLead=(bid,record)=>{
+   record.stage??='new';record.deal_value??=0;record.owner??='';record.chat_id??=null;
+   (data.leads[bid]??=[]).unshift(record);
+   if(record.source!=='sample'){
+     (data.crmTasks[bid]??=[]).unshift({id:++data.crmCounter,business_id:bid,lead_id:record.id,title:'Follow up with '+record.name,details:'Review the customer inquiry.',due_at:new Date(Date.now()+86400000).toISOString(),status:'open',kind:'initial-follow-up',created_at:date(),completed_at:null});
+     crmEvent(bid,record.id,'captured','Lead captured via '+record.source);
+   }
+ };
+ const crmSnapshot=bid=>{
+   const stages=Object.fromEntries(['new','contacted','qualified','proposal','won','lost'].map(v=>[v,0]));
+   const leads=(data.leads[bid]||[]).filter(l=>l.source!=='sample');
+   leads.forEach(l=>{stages[l.stage||'new']=(stages[l.stage||'new']||0)+1});
+   const tasks=(data.crmTasks[bid]||[]).map(t=>({...t,contact_name:(data.leads[bid]||[]).find(l=>l.id===t.lead_id)?.name||null}))
+     .sort((a,b)=>(a.status==='done')-(b.status==='done')||String(a.due_at||'').localeCompare(String(b.due_at||''))).slice(0,250);
+   const closed=stages.won+stages.lost,cutoff=new Date(Date.now()-30*86400000).toISOString().slice(0,10),daily={};
+   leads.filter(l=>l.created_at.slice(0,10)>=cutoff).forEach(l=>{const d=l.created_at.slice(0,10);daily[d]=(daily[d]||0)+1});
+   return {stages,tasks,open_tasks:tasks.filter(t=>t.status==='open').length,overdue_tasks:tasks.filter(t=>t.status==='open'&&t.due_at&&t.due_at.slice(0,10)<date().slice(0,10)).length,
+     pipeline_value:leads.filter(l=>!['won','lost'].includes(l.stage)).reduce((n,l)=>n+(Number(l.deal_value)||0),0),
+     won_value:leads.filter(l=>l.stage==='won').reduce((n,l)=>n+(Number(l.deal_value)||0),0),
+     closed_win_rate:closed?Math.round(stages.won/closed*1000)/10:0,lead_count:leads.length,new_leads_30d:Object.values(daily).reduce((a,b)=>a+b,0),daily_leads:Object.entries(daily).sort().map(([day,count])=>({day,count}))};
+ };
+ const dashboard=id=>{const b=business(id);if(!b)return null;return {business:b,leads:data.leads[id]||[],appointments:data.appointments[id]||[],faqs:data.faqs[id]||[],activities:data.activities[id]||[],crm:crmSnapshot(id),stats:{conversations:data.chats[id]||0,leads:(data.leads[id]||[]).length,requests:(data.appointments[id]||[]).length,faqs:(data.faqs[id]||[]).length},ai_enabled:false,demo_mode:true,calendar_connected:false}};
  function chat(id,body){const b=business(id),faqs=data.faqs[id]||[];if(!b)return err('Business not found',404);
  let sid=(body.session_id&&data.sessions[body.session_id])?body.session_id:null;
  if(!sid){sid=(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():'offline-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);data.sessions[sid]={bid:id,stage:'',state:{},lang:'en',created_at:date()};data.chats[id]=(data.chats[id]||0)+1;}
@@ -63,11 +91,11 @@
   'booking.service':()=>{const service=text.replace('SERVICE::','').trim();if(b.services.some(v=>v.toLowerCase()===service.toLowerCase())){ss.state.service=b.services.find(v=>v.toLowerCase()===service.toLowerCase());ss.stage='booking.slot';options=slotOptions();return e('Select a preferred demo request time. Times are NOT verified calendar availability.','Elige un horario de demostración. La disponibilidad no está verificada.')}options=b.services.map(x=>'SERVICE::'+x);return e('Choose a service below:','Elige un servicio:');},
   'booking.slot':()=>{if(text.startsWith('SLOT::')&&slotOptions().includes(text)){ss.state.slot=text.slice(6);ss.stage='booking.name';return e('Great! What name should we use for the appointment request?','¡Muy bien! ¿A nombre de quién registramos la solicitud?')}options=slotOptions();return e('Please select a demo request slot:','Elige un horario de demostración:');},
   'booking.name':()=>{const name=text.replace(/^(my name is|me llamo|soy|i am)\s+/i,'').trim();if(name.length<2)return e('What name should I use?','¿Cuál es tu nombre?');ss.state.name=name;ss.stage='booking.email';return e('And what email should we contact?','¿Y a qué correo podemos contactarte?');},
-  'booking.email':()=>{const email=f_email(text);if(!email)return e('Please enter a valid email.','Por favor, escribe un correo válido.');const a={id:Date.now(),business_id:id,name:ss.state.name,email,service:ss.state.service,starts_at:ss.state.slot,status:'requested',created_at:date()};(data.appointments[id]??=[]).unshift(a);(data.leads[id]??=[]).unshift({id:Date.now()+1,business_id:id,name:a.name,email,phone:'',source:'assistant',note:'Appointment request: '+a.service,created_at:date()});activities(id,'appointment','Appointment request from '+a.name+' for '+a.service);ss.stage='';ss.state={};return e('Your appointment REQUEST has been saved. This is not a confirmed booking. The business must confirm the time with you.','Se registró tu SOLICITUD de cita. No está confirmada. El negocio debe comunicarse contigo para confirmarla.');},
+  'booking.email':()=>{const email=f_email(text);if(!email)return e('Please enter a valid email.','Por favor, escribe un correo válido.');const a={id:Date.now(),business_id:id,name:ss.state.name,email,service:ss.state.service,starts_at:ss.state.slot,status:'requested',created_at:date()};(data.appointments[id]??=[]).unshift(a);registerLead(id,{id:++data.crmCounter,business_id:id,name:a.name,email,phone:'',source:'assistant',note:'Appointment request: '+a.service,created_at:date(),chat_id:sid});activities(id,'appointment','Appointment request from '+a.name+' for '+a.service);ss.stage='';ss.state={};return e('Your appointment REQUEST has been saved. This is not a confirmed booking. The business must confirm the time with you.','Se registró tu SOLICITUD de cita. No está confirmada. El negocio debe comunicarse contigo para confirmarla.');},
   'lead.name':()=>{const name=text.replace(/^(my name is|me llamo|soy|i am)\s+/i,'').trim();if(name.length<2)return e('What is your name?','¿Cómo te llamas?');ss.state.name=name;ss.stage='lead.email';return e('What is your email address?','¿Cuál es tu correo electrónico?');},
   'lead.email':()=>{const email=f_email(text);if(!email)return e('Please enter a valid email address.','Ingresa un correo válido.');ss.state.email=email;ss.stage='lead.phone';options=L==='es'?['Omitir']:['Skip phone'];return e('Would you like to leave a phone number? You can type skip.','¿Quieres dejar un teléfono? Puedes escribir omitir.');},
   'lead.phone':()=>{if(['skip','skip phone','omitir','no'].includes(normalized(text))){ss.state.phone='';}else{const number=text.replace(/[^0-9+()\-]/g,'').slice(0,30);if(number.replace(/\D/g,'').length<7)return e('Please enter a phone number or skip.','Escribe un teléfono o escribe omitir.');ss.state.phone=number;}ss.stage='lead.note';return e('What would you like help with?','¿En qué necesitas ayuda?');},
-  'lead.note':()=>{(data.leads[id]??=[]).unshift({id:Date.now(),business_id:id,name:ss.state.name,email:ss.state.email,phone:ss.state.phone||'',source:'assistant',note:text,created_at:date()});activities(id,'lead','New lead: '+ss.state.name+' asked about '+text.slice(0,72));ss.state={};ss.stage='';return e('Thanks! I saved your message and contact information for the team. Anything else?','¡Gracias! Guardé tus datos y mensaje para el equipo. ¿Algo más?');}
+  'lead.note':()=>{registerLead(id,{id:++data.crmCounter,business_id:id,name:ss.state.name,email:ss.state.email,phone:ss.state.phone||'',source:'assistant',note:text,created_at:date(),chat_id:sid});activities(id,'lead','New lead: '+ss.state.name+' asked about '+text.slice(0,72));ss.state={};ss.stage='';return e('Thanks! I saved your message and contact information for the team. Anything else?','¡Gracias! Guardé tus datos y mensaje para el equipo. ¿Algo más?');}
  };
  if(['cancel','start over','cancelar','reiniciar'].includes(low)){ss.stage='';ss.state={};answer=e('No problem. How can I help?','Sin problema. ¿Cómo te ayudo?');}
  else if(ask[ss.stage])answer=ask[ss.stage]();
@@ -90,6 +118,68 @@
  if(method==='POST'){const id='biz-'+Math.random().toString(36).slice(2,10),name=body.name||'New business';const b={id,name,category:body.category||'Other',initials:name.split(/\s+/).slice(0,2).map(s=>s[0]).join('').toUpperCase(),accent:'#7c74d7',tagline:body.tagline||'Here to help, any time.',email:body.email||'',hours:body.hours||'By appointment',location:body.location||'',greeting:'Hi! Welcome to '+name+'. How can I help?',greeting_es:'¡Hola! Bienvenido a '+name+'. ¿Cómo te puedo ayudar?',services:['Consultation'],knowledge:'Add business facts under Knowledge.'};data.businesses.push(b);data.faqs[id]=[];save();return respond({id});}}
  if(seg[1]==='businesses'&&seg.length>=3){const id=seg[2],b=business(id);if(!b)return err('Not found',404);
  if(seg.length===3&&method==='GET')return respond(b);
+
+ if(seg[3]==='crm'){
+   const group=seg[4],item=Number(seg[5]),leads=data.leads[id]||[],tasks=data.crmTasks[id]||[];
+   const lead=leads.find(l=>l.id===item),task=tasks.find(t=>t.id===item);
+   if(group==='leads'&&seg.length===5&&method==='POST'){
+     if(!body.name||body.name.trim().length<2)return err('Contact name required',422);
+     const newLead={id:++data.crmCounter,business_id:id,source:'manual',created_at:date(),name:body.name.trim(),
+      email:body.email||'',phone:body.phone||'',note:body.note||'',stage:body.stage||'new',deal_value:Number(body.deal_value)||0,owner:body.owner||'',updated_at:date()};
+     registerLead(id,newLead);save();return respond(newLead);
+   }
+   if(group==='leads'&&seg.length>=6){
+     if(!lead)return err('Contact not found in this business',404);
+     if(seg.length===6&&method==='GET')return respond({lead,events:(data.crmEvents[id]||[]).filter(e=>e.lead_id===item),
+       messages:lead.chat_id?(data.transcripts[lead.chat_id]||[]):[],
+       appointments:(data.appointments[id]||[]).filter(a=>lead.email&&a.email===lead.email),
+       tasks:tasks.filter(t=>t.lead_id===item)});
+     if(seg.length===6&&method==='PUT'){
+       const old=lead.stage||'new',value=lead.deal_value;
+       for(const k of ['name','email','phone','note','owner','stage','deal_value'])if(k in body)lead[k]=body[k];
+       lead.updated_at=date();if(old!==lead.stage)crmEvent(id,item,'stage','Pipeline: '+old+' → '+lead.stage);
+       if(value!==lead.deal_value)crmEvent(id,item,'value','Opportunity value updated to 
+ if(seg[3]==='conversations'&&method==='GET'){
+   const conversations=Object.entries(data.sessions).filter(([,ss])=>ss.bid===id)
+     .sort(([,a],[,b])=>(b.updated_at||b.created_at||'').localeCompare(a.updated_at||a.created_at||''))
+     .slice(0,50).map(([sid,ss])=>({id:sid,language:ss.lang||'en',created_at:ss.created_at||date(),updated_at:ss.updated_at||ss.created_at||date(),messages:(data.transcripts[sid]||[]).slice(-40)}));
+   return respond({conversations});}
+ 
+ if(seg[3]==='integrations'&&method==='GET')return respond({calendar:null,sms:null,
+   booking:{timezone:'America/New_York',duration_min:60},
+   oauth_ready:{google:false,microsoft:false},sms_ready:false,production_mode:false,webhook_url:null});
+ if(seg[3]==='chat'&&method==='POST')return chat(id,body);
+ if(seg[3]==='settings'&&method==='PUT'){for(const key of ['name','tagline','email','hours','location','greeting','greeting_es','knowledge','services','accent'])if(key in body)b[key]=body[key];save();return respond({ok:true});}
+ if(seg[3]==='faqs'&&method==='POST'){(data.faqs[id]??=[]).push({id:Date.now(),business_id:id,...body});save();return respond({ok:true});}
+ if(seg[3]==='followup'&&method==='POST'){const l=(data.leads[id]||[]).find(l=>l.id===body.lead_id);if(!l)return err('Lead not found',404);return respond({to:l.email,subject:'Following up from '+b.name,body:'Hi '+l.name.split(' ')[0]+',\n\nThanks for contacting '+b.name+'! I wanted to follow up about '+l.note+'. Do you have any questions or a good time for us to reach you?\n\nThank you,\n'+b.name,sent:false});}}
+ return err('Not found',404);
+ }
+ window.__nativeFetch=window.fetch.bind(window);window.fetch=router;
+})();
++Number(lead.deal_value).toFixed(2));
+       save();return respond(lead);
+     }
+     if(seg[6]==='notes'&&method==='POST'){
+       if(!body.text?.trim())return err('Note cannot be blank',422);
+       crmEvent(id,item,'note',body.text.trim());lead.updated_at=date();save();
+       return respond({lead,events:(data.crmEvents[id]||[]).filter(e=>e.lead_id===item)});
+     }
+   }
+   if(group==='tasks'&&seg.length===5&&method==='POST'){
+     if(!body.title?.trim())return err('Task title required',422);
+     if(body.lead_id&&!leads.some(l=>l.id===body.lead_id))return err('Contact not found in this business',404);
+     const t={id:++data.crmCounter,business_id:id,lead_id:body.lead_id||null,title:body.title.trim(),details:body.details||'',due_at:body.due_at||null,status:'open',kind:'manual',created_at:date(),completed_at:null};
+     (data.crmTasks[id]??=[]).unshift(t);if(t.lead_id)crmEvent(id,t.lead_id,'task','Task created: '+t.title);
+     save();return respond(t);
+   }
+   if(group==='tasks'&&seg.length===6&&method==='PUT'){
+     if(!task)return err('Task not found in this business',404);
+     for(const k of ['title','details','due_at','status'])if(k in body)task[k]=body[k];
+     if('status' in body){task.completed_at=task.status==='done'?date():null;if(task.lead_id)crmEvent(id,task.lead_id,'task','Task '+task.status+': '+task.title);}
+     save();return respond(task);
+   }
+   return err('CRM route not found',404);
+ }
  if(seg[3]==='dashboard')return respond(dashboard(id));
  if(seg[3]==='conversations'&&method==='GET'){
    const conversations=Object.entries(data.sessions).filter(([,ss])=>ss.bid===id)
