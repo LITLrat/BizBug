@@ -349,7 +349,7 @@ function wireIntegrations(){
 }
 
 function render(){if(!state.data)return;sideBar();let html={'overview':mainOverview,'conversations':conversationsPage,'leads':crmLeadsPage,'pipeline':crmPipelinePage,'tasks':crmTasksPage,'reports':crmReportsPage,'appointments':appointmentsPage,'knowledge':knowledgePage,'settings':settingsPage,'integrations':integrationsPage}[state.page]();$('#page-content').innerHTML=html;wirePage();wireThemeControls();$$('.theme-pill').forEach(btn=>btn.classList.toggle('active',btn.dataset.themeSet===state.theme));translateUi($('#app'));}
-function wirePage(){wireCrm();$('[data-goto]').forEach(btn=>btn.addEventListener('click',()=>switchPage(btn.dataset.goto)));
+function wirePage(){wireCrm();$$('[data-goto]').forEach(btn=>btn.addEventListener('click',()=>switchPage(btn.dataset.goto)));
  $$('[data-followup]').forEach(btn=>btn.addEventListener('click',()=>openFollowup(btn.dataset.followup)));
  $$('#chat-options [data-send]').forEach(btn=>btn.addEventListener('click',()=>sendChat(btn.dataset.send)));
  $('#reset-chat')?.addEventListener('click',()=>resetChat());
