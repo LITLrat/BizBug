@@ -138,7 +138,31 @@
        const old=lead.stage||'new',value=lead.deal_value;
        for(const k of ['name','email','phone','note','owner','stage','deal_value'])if(k in body)lead[k]=body[k];
        lead.updated_at=date();if(old!==lead.stage)crmEvent(id,item,'stage','Pipeline: '+old+' → '+lead.stage);
-       if(value!==lead.deal_value)crmEvent(id,item,'value','Opportunity value updated to 
+       if(value!==lead.deal_value)crmEvent(id,item,'value','Opportunity value updated to $'+Number(lead.deal_value).toFixed(2));
+       save();return respond(lead);
+     }
+     if(seg[6]==='notes'&&method==='POST'){
+       if(!body.text?.trim())return err('Note cannot be blank',422);
+       crmEvent(id,item,'note',body.text.trim());lead.updated_at=date();save();
+       return respond({lead,events:(data.crmEvents[id]||[]).filter(e=>e.lead_id===item)});
+     }
+   }
+   if(group==='tasks'&&seg.length===5&&method==='POST'){
+     if(!body.title?.trim())return err('Task title required',422);
+     if(body.lead_id&&!leads.some(l=>l.id===body.lead_id))return err('Contact not found in this business',404);
+     const t={id:++data.crmCounter,business_id:id,lead_id:body.lead_id||null,title:body.title.trim(),details:body.details||'',due_at:body.due_at||null,status:'open',kind:'manual',created_at:date(),completed_at:null};
+     (data.crmTasks[id]??=[]).unshift(t);if(t.lead_id)crmEvent(id,t.lead_id,'task','Task created: '+t.title);
+     save();return respond(t);
+   }
+   if(group==='tasks'&&seg.length===6&&method==='PUT'){
+     if(!task)return err('Task not found in this business',404);
+     for(const k of ['title','details','due_at','status'])if(k in body)task[k]=body[k];
+     if('status' in body){task.completed_at=task.status==='done'?date():null;if(task.lead_id)crmEvent(id,task.lead_id,'task','Task '+task.status+': '+task.title);}
+     save();return respond(task);
+   }
+   return err('CRM route not found',404);
+ }
+ if(seg[3]==='dashboard')return respond(dashboard(id));
  if(seg[3]==='conversations'&&method==='GET'){
    const conversations=Object.entries(data.sessions).filter(([,ss])=>ss.bid===id)
      .sort(([,a],[,b])=>(b.updated_at||b.created_at||'').localeCompare(a.updated_at||a.created_at||''))
