@@ -27,8 +27,8 @@ for x in SEEDS:
  seed['leads'][x['id']]=[{'id':idx+1,'business_id':x['id'],'name':name,'email':email,'phone':'','source':'sample','note':note,'created_at':now} for idx,(name,email,note) in enumerate(sample.get(x['id'],[]))]
  seed['activities'][x['id']]=[{'id':idx+1,'business_id':x['id'],'kind':'lead','description':'Sample lead received from '+name,'created_at':now} for idx,(name,_,_) in enumerate(sample.get(x['id'],[]))]
 adapter=adapter.replace('__INITIAL_DATA__',json.dumps(seed,ensure_ascii=False))
-html=html.replace('<link rel="stylesheet" href="/static/styles.css">','<style>'+css+'</style>')
-html=html.replace('<script src="/static/app.js" defer></script>',
+html=html.replace('<link rel="stylesheet" href="/static/styles.css?v=emerald-fix-20261027">','<style>'+css+'</style>')
+html=html.replace('<script src="/static/app.js?v=emerald-fix-20261027" defer></script>',
  '''<script>'''+adapter.replace('</script>','<\\/script>')+'''</script><script>'''+js.replace('</script>','<\\/script>')+'''</script>''')
 html=html.replace('<title>BizBug · Assistant Studio</title>', '<title>BizBug · Offline Sales Demo</title>')
 html=html.replace('Demo environment</span>', 'Offline demo · this device only</span>')

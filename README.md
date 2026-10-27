@@ -239,3 +239,8 @@ should be tuned using examples from each business sector.
 BizBug now opens in **Emerald Night**, a premium dark interface inspired by the Charleston BizBug advertisement: near-black backgrounds, luminous emerald accents, subtle glow on active elements, pale mint secondary text, and consistent dark panels across Overview, Live Assistant Playground, Business Setup, Knowledge Base, conversations, leads, appointments, and integration screens. Existing uploaded BB artwork is preserved unchanged.
 
 Business Setup and the topbar offer **Emerald Night**, **Deep Forest**, **Graphite Glow**, and **Midnight Mint**. Theme choice persists on the current device; saved legacy Fern/Ocean/Plum/Sunset preferences are mapped to the closest updated palette. All existing chat and business APIs are unchanged.
+
+
+## v0.14.1 iPhone Theme Startup Hotfix
+
+Fixed the new theme's initial JavaScript selector: querying one theme button and calling `forEach` caused a fatal TypeError on every device, leaving the UI at `Loading Assistant...`. Using the multi-element selector corrects initialization. Updated CSS/JS asset URLs with a version query to bypass stale Safari/Chrome caches, and preserved the standalone HTML demo builder. Regression tests exercise the startup function and cache-busting paths.
