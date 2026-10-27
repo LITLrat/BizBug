@@ -232,3 +232,10 @@ should be tuned using examples from each business sector.
 - Also handle common business-hours and location questions using owner-entered values.
 - Preserve booking and pricing intents, Spanish replies, and business-data isolation. No extra OpenAI calls for these structured facts.
 - Regression coverage includes the real customer question `List all services that you offer` and updated settings.
+
+
+## v0.14: Emerald Night Branding
+
+BizBug now opens in **Emerald Night**, a premium dark interface inspired by the Charleston BizBug advertisement: near-black backgrounds, luminous emerald accents, subtle glow on active elements, pale mint secondary text, and consistent dark panels across Overview, Live Assistant Playground, Business Setup, Knowledge Base, conversations, leads, appointments, and integration screens. Existing uploaded BB artwork is preserved unchanged.
+
+Business Setup and the topbar offer **Emerald Night**, **Deep Forest**, **Graphite Glow**, and **Midnight Mint**. Theme choice persists on the current device; saved legacy Fern/Ocean/Plum/Sunset preferences are mapped to the closest updated palette. All existing chat and business APIs are unchanged.
