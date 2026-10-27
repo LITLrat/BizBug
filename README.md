@@ -244,3 +244,8 @@ Business Setup and the topbar offer **Emerald Night**, **Deep Forest**, **Graphi
 ## v0.14.1 iPhone Theme Startup Hotfix
 
 Fixed the new theme's initial JavaScript selector: querying one theme button and calling `forEach` caused a fatal TypeError on every device, leaving the UI at `Loading Assistant...`. Using the multi-element selector corrects initialization. Updated CSS/JS asset URLs with a version query to bypass stale Safari/Chrome caches, and preserved the standalone HTML demo builder. Regression tests exercise the startup function and cache-busting paths.
+
+
+## v0.14.2: Restore Original Light Palette
+
+At the user's request, the Emerald Night redesign was rolled back to the previous light theme: Fern (default), Ocean, Plum, and Sunset. Restored the exact working pre-redesign CSS and application theme JavaScript while preserving all prior Business Setup, FAQ, conversation, service-list and assistant functionality, plus the original uploaded green BB icon. The iPhone startup selector issue is absent in the restored version. CSS and JS receive a new cache-busting URL (`v=light-restored-20261027`), also supported by the offline HTML builder. All API/backend code and stored business data remain unchanged.
